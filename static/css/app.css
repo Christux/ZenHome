@@ -1,13 +1,37 @@
         :root {
             --sidebar-width: 240px;
             --bg: #f6f7f9;
+            --surface: #ffffff;
+            --surface-muted: #f0f1f5;
+            --surface-hover: #f2f3f5;
+            --border: #e5e6e9;
+            --text: #25272b;
+            --text-muted: #858992;
             --card-radius: 14px;
+        }
+
+        :root[data-theme="dark"] {
+            --bg: #15171d;
+            --surface: #1e2129;
+            --surface-muted: #292d38;
+            --surface-hover: #303541;
+            --border: #363b47;
+            --text: #f1f3f7;
+            --text-muted: #a9b0bd;
+            color-scheme: dark;
         }
 
         body {
             background: var(--bg);
-            color: #25272b;
+            color: var(--text);
             font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        :root[data-theme="dark"] body {
+            --bs-body-bg: var(--bg);
+            --bs-body-color: var(--text);
+            background: var(--bg);
+            color: var(--text);
         }
 
         .app {
@@ -18,8 +42,8 @@
             width: var(--sidebar-width);
             position: fixed;
             inset: 0 auto 0 0;
-            background: #fff;
-            border-right: 1px solid #e7e8eb;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
             z-index: 100;
         }
 
@@ -43,14 +67,14 @@
         .nav-label {
             font-size: 11px;
             font-weight: 700;
-            color: #999da5;
+            color: var(--text-muted);
             text-transform: uppercase;
             padding: 8px 12px;
             letter-spacing: .06em;
         }
 
         .sidebar .nav-link {
-            color: #656972;
+            color: var(--text-muted);
             border-radius: 9px;
             padding: 10px 12px;
             margin-bottom: 3px;
@@ -60,8 +84,8 @@
         }
 
         .sidebar .nav-link:hover {
-            background: #f2f3f5;
-            color: #222;
+            background: var(--surface-hover);
+            color: var(--text);
         }
 
         .sidebar .nav-link.active {
@@ -81,8 +105,8 @@
 
         .topbar {
             height: 72px;
-            background: rgba(255,255,255,.92);
-            border-bottom: 1px solid #e7e8eb;
+            background: color-mix(in srgb, var(--surface) 92%, transparent);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -105,12 +129,13 @@
         }
 
         .page-subtitle {
-            color: #858992;
+            color: var(--text-muted);
             margin-bottom: 28px;
         }
 
         .card {
-            border: 1px solid #e5e6e9;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: var(--card-radius);
             box-shadow: 0 2px 7px rgba(20,25,40,.025);
         }
@@ -135,13 +160,13 @@
         }
 
         .item-content {
-            color: #646872;
+            color: var(--text-muted);
             line-height: 1.55;
         }
 
         .item-meta {
             font-size: 12px;
-            color: #92959d;
+            color: var(--text-muted);
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
@@ -210,7 +235,7 @@
             align-items: center;
             justify-content: center;
             border-radius: 10px;
-            background: #f0f1f5;
+            background: var(--surface-muted);
             margin-bottom: 16px;
         }
 
@@ -220,7 +245,7 @@
         }
 
         .stat-label {
-            color: #858992;
+            color: var(--text-muted);
             font-size: 13px;
         }
 
@@ -235,7 +260,7 @@
             align-items: center;
             gap: 10px;
             padding: 9px 0;
-            border-bottom: 1px solid #f0f0f2;
+            border-bottom: 1px solid var(--border);
         }
 
         .check-row:last-child {
@@ -248,7 +273,7 @@
 
         .check-row.checked .check-label {
             text-decoration: line-through;
-            color: #aaa;
+            color: var(--text-muted);
         }
 
         .check-edit {
@@ -288,7 +313,7 @@
         }
 
         .kanban-column {
-            background: #eceef2;
+            background: var(--surface-muted);
             border-radius: 12px;
             padding: 14px;
             min-height: 500px;
@@ -303,7 +328,7 @@
         }
 
         .kanban-card {
-            background: #fff;
+            background: var(--surface);
             border-radius: 10px;
             padding: 14px;
             margin-bottom: 10px;
@@ -311,7 +336,7 @@
         }
 
         .kanban-card small {
-            color: #999;
+            color: var(--text-muted);
         }
 
         .calendar-toolbar {
@@ -324,32 +349,32 @@
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            border-top: 1px solid #e5e6e9;
-            border-left: 1px solid #e5e6e9;
+            border-top: 1px solid var(--border);
+            border-left: 1px solid var(--border);
         }
 
         .calendar-weekday {
-            background: #f7f7f8;
+            background: var(--surface-muted);
             font-size: 11px;
             font-weight: 700;
-            color: #8c9098;
+            color: var(--text-muted);
             text-transform: uppercase;
             padding: 10px;
-            border-right: 1px solid #e5e6e9;
-            border-bottom: 1px solid #e5e6e9;
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
         }
 
         .calendar-day {
-            background: #fff;
+            background: var(--surface);
             min-height: 115px;
             padding: 9px;
-            border-right: 1px solid #e5e6e9;
-            border-bottom: 1px solid #e5e6e9;
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
         }
 
         .calendar-day.muted {
-            background: #fafafa;
-            color: #bbb;
+            background: var(--surface-muted);
+            color: var(--text-muted);
         }
 
         .day-number {
@@ -393,6 +418,59 @@
 
         .mobile-menu {
             display: none;
+        }
+
+        :root[data-theme="dark"] .btn-light,
+        :root[data-theme="dark"] .bg-light,
+        :root[data-theme="dark"] .text-bg-light {
+            --bs-btn-color: var(--text);
+            --bs-btn-bg: var(--surface-muted);
+            --bs-btn-border-color: var(--surface-muted);
+            --bs-btn-hover-color: var(--text);
+            --bs-btn-hover-bg: var(--surface-hover);
+            --bs-btn-hover-border-color: var(--surface-hover);
+            --bs-btn-active-color: var(--text);
+            --bs-btn-active-bg: var(--surface-hover);
+            --bs-btn-active-border-color: var(--surface-hover);
+            background-color: var(--surface-muted) !important;
+            color: var(--text) !important;
+        }
+
+        :root[data-theme="dark"] .form-control,
+        :root[data-theme="dark"] .form-select,
+        :root[data-theme="dark"] .input-group-text,
+        :root[data-theme="dark"] .modal-content {
+            background-color: var(--surface) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+        }
+
+        :root[data-theme="dark"] .form-control::placeholder {
+            color: var(--text-muted);
+        }
+
+        :root[data-theme="dark"] .modal-header,
+        :root[data-theme="dark"] .modal-footer {
+            border-color: var(--border);
+        }
+
+        :root[data-theme="dark"] .btn-close {
+            filter: invert(1) grayscale(1) brightness(2);
+        }
+
+        :root[data-theme="dark"] .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        :root[data-theme="dark"] .btn-outline-secondary {
+            --bs-btn-color: var(--text-muted);
+            --bs-btn-border-color: #596170;
+            --bs-btn-hover-color: var(--text);
+            --bs-btn-hover-bg: var(--surface-hover);
+            --bs-btn-hover-border-color: #687181;
+            --bs-btn-active-color: var(--text);
+            --bs-btn-active-bg: #4b5362;
+            --bs-btn-active-border-color: #4b5362;
         }
 
         @media(max-width: 850px) {

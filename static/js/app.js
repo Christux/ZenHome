@@ -96,7 +96,6 @@ $(function () {
         showPage($(this).data('page'), true);
     });
     $('#mobileMenu').on('click', () => $('#sidebar').toggleClass('open'));
-
     $('#createItem').on('click', async function () {
         const title = $('#newTitle').val().trim();
         if (!title) return $('#newTitle').trigger('focus');
