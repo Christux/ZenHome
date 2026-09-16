@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ZenHome — Notes & tâches</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+    <link href="/static/css/app.css" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+
+        <div class="brand">
+            <i class="bi bi-check2-square"></i>
+            ZenHome
+        </div>
+
+        <div class="nav-section">
+
+            <div class="nav-label">Workspace</div>
+
+            <a href="#" class="nav-link active" data-page="dashboard">
+                <i class="bi bi-grid"></i>
+                Dashboard
+            </a>
+
+            <a href="#" class="nav-link" data-page="notes">
+                <i class="bi bi-sticky"></i>
+                Notes
+                <span class="badge text-bg-light ms-auto">8</span>
+            </a>
+
+            <a href="#" class="nav-link" data-page="checklist">
+                <i class="bi bi-list-check"></i>
+                Checklist
+                <span class="badge text-bg-light ms-auto">5</span>
+            </a>
+
+            <a href="#" class="nav-link" data-page="tasks">
+                <i class="bi bi-check-circle"></i>
+                Tâches
+                <span class="badge text-bg-light ms-auto">12</span>
+            </a>
+
+            <a href="#" class="nav-link" data-page="kanban">
+                <i class="bi bi-kanban"></i>
+                Kanban
+            </a>
+
+            <a href="#" class="nav-link" data-page="calendar">
+                <i class="bi bi-calendar3"></i>
+                Calendrier
+            </a>
+
+        </div>
+
+        <div class="nav-section mt-3">
+            <div class="nav-label">Filtres</div>
+
+            <a href="#" class="nav-link">
+                <i class="bi bi-star"></i>
+                Favoris
+            </a>
+
+            <a href="#" class="nav-link">
+                <i class="bi bi-archive"></i>
+                Archivés
+            </a>
+        </div>
+
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <header class="topbar">
+
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-light mobile-menu" id="mobileMenu">
+                    <i class="bi bi-list"></i>
+                </button>
+
+                <div class="input-group" style="max-width:350px;">
+                    <span class="input-group-text bg-light border-0">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="search"
+                           class="form-control bg-light border-0"
+                           placeholder="Rechercher...">
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-light">
+                    <i class="bi bi-bell"></i>
+                </button>
+
+                <div class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center"
+                     style="width:36px;height:36px;font-size:13px;">
+                    JD
+                </div>
+            </div>
+
+        </header>
+
+        <div class="content">
+
+            <!-- ================= DASHBOARD ================= -->
+            <section class="page" id="page-dashboard">
+
+                <div class="page-title">Bonjour Jean 👋</div>
+                <div class="page-subtitle">
+                    Voici ce qui vous attend aujourd'hui.
+                </div>
+
+                <div class="row g-3 mb-4">
+
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="stat-icon">
+                                <i class="bi bi-calendar-day"></i>
+                            </div>
+                            <div class="stat-number">7</div>
+                            <div class="stat-label">Éléments aujourd'hui</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="stat-icon">
+                                <i class="bi bi-check2-circle"></i>
+                            </div>
+                            <div class="stat-number">4</div>
+                            <div class="stat-label">Tâches terminées</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="stat-icon">
+                                <i class="bi bi-list-check"></i>
+                            </div>
+                            <div class="stat-number">2</div>
+                            <div class="stat-label">Checklists ouvertes</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="stat-icon">
+                                <i class="bi bi-clock"></i>
+                            </div>
+                            <div class="stat-number">3</div>
+                            <div class="stat-label">À venir</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="row g-4">
+
+                    <div class="col-lg-8">
+
+                        <div class="section-title">Aujourd'hui</div>
+
+                        <div class="card item-card">
+                            <div class="card-body">
+
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <span class="type-badge badge-task">TÂCHE</span>
+                                        <div class="item-title mt-2">
+                                            Préparer la présentation client
+                                        </div>
+                                    </div>
+
+                                    <span class="task-status status-progress">
+                                        En cours
+                                    </span>
+                                </div>
+
+                                <div class="item-content">
+                                    Finaliser les slides et préparer les exemples
+                                    pour la réunion de demain.
+                                </div>
+
+                                <div class="item-meta">
+                                    <span>
+                                        <i class="bi bi-clock"></i>
+                                        Aujourd'hui, 18:00
+                                    </span>
+                                    <span>
+                                        <i class="bi bi-arrow-repeat"></i>
+                                        Une fois
+                                    </span>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="card item-card">
+                            <div class="card-body">
+
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <span class="type-badge badge-checklist">
+                                            CHECKLIST
+                                        </span>
+
+                                        <div class="item-title mt-2">
+                                            Courses de la semaine
+                                        </div>
+                                    </div>
+
+                                    <span class="text-muted small">
+                                        4 / 7
+                                    </span>
+                                </div>
+
+                                <div class="progress mt-3" style="height:5px;">
+                                    <div class="progress-bar"
+                                         style="width:57%">
+                                    </div>
+                                </div>
+
+                                <div class="item-meta">
+                                    <span>
+                                        <i class="bi bi-arrow-repeat"></i>
+                                        Chaque lundi
+                                    </span>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="card item-card">
+                            <div class="card-body">
+
+                                <div>
+                                    <span class="type-badge badge-note">NOTE</span>
+                                    <div class="item-title mt-2">
+                                        Appeler maman 🎂
+                                    </div>
+                                </div>
+
+                                <div class="item-content">
+                                    Son anniversaire est aujourd'hui.
+                                    Penser à l'appeler ce soir.
+                                </div>
+
+                                <div class="item-meta">
+                                    <span>
+                                        <i class="bi bi-calendar"></i>
+                                        Aujourd'hui
+                                    </span>
+
+                                    <span>
+                                        <i class="bi bi-arrow-repeat"></i>
+                                        Chaque année
+                                    </span>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="col-lg-4">
+
+                        <div class="section-title">À venir</div>
+
+                        <div class="card p-3 mb-2">
+                            <div class="small text-muted">Demain · 09:30</div>
+                            <div class="fw-semibold mt-1">
+                                Réunion équipe produit
+                            </div>
+                        </div>
+
+                        <div class="card p-3 mb-2">
+                            <div class="small text-muted">18 septembre</div>
+                            <div class="fw-semibold mt-1">
+                                Renouveler assurance
+                            </div>
+                        </div>
+
+                        <div class="card p-3 mb-2">
+                            <div class="small text-muted">20 septembre</div>
+                            <div class="fw-semibold mt-1">
+                                Week-end à Bordeaux
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================= NOTES ================= -->
+            <section class="page d-none" id="page-notes">
+
+                <div class="page-title">Notes</div>
+                <div class="page-subtitle">
+                    Vos notes, rappels et informations importantes.
+                </div>
+
+                <div id="notesList">
+
+                    <div class="card item-card">
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between">
+
+                                <div class="flex-grow-1">
+
+                                    <span class="type-badge badge-note">NOTE</span>
+
+                                    <div class="item-title mt-2">
+                                        Idée pour le prochain projet
+                                    </div>
+
+                                    <div class="item-content">
+                                        Créer une interface beaucoup plus simple
+                                        pour permettre aux utilisateurs de retrouver
+                                        rapidement leurs informations importantes.
+                                    </div>
+
+                                    <div class="item-meta">
+                                        <span>
+                                            <i class="bi bi-calendar"></i>
+                                            14 septembre
+                                        </span>
+                                        <span>
+                                            <i class="bi bi-arrow-repeat"></i>
+                                            Jamais
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                                <div class="edit-actions">
+                                    <button class="btn btn-sm btn-light edit-note"
+                                            title="Modifier">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+
+                    <div class="card item-card">
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between">
+
+                                <div class="flex-grow-1">
+
+                                    <span class="type-badge badge-note">NOTE</span>
+
+                                    <div class="item-title mt-2">
+                                        Appeler le plombier
+                                    </div>
+
+                                    <div class="item-content">
+                                        Demander un devis pour réparer la fuite
+                                        dans la salle de bain.
+                                    </div>
+
+                                    <div class="item-meta">
+                                        <span>
+                                            <i class="bi bi-calendar"></i>
+                                            16 septembre
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                                <div class="edit-actions">
+                                    <button class="btn btn-sm btn-light edit-note">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+
+                    <div class="card item-card">
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between">
+
+                                <div class="flex-grow-1">
+
+                                    <span class="type-badge badge-note">NOTE</span>
+
+                                    <div class="item-title mt-2">
+                                        Anniversaire Paul 🎂
+                                    </div>
+
+                                    <div class="item-content">
+                                        Acheter une bouteille de vin et penser
+                                        à envoyer un message.
+                                    </div>
+
+                                    <div class="item-meta">
+                                        <span>
+                                            <i class="bi bi-calendar"></i>
+                                            25 septembre
+                                        </span>
+                                        <span>
+                                            <i class="bi bi-arrow-repeat"></i>
+                                            Chaque année
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                                <div class="edit-actions">
+                                    <button class="btn btn-sm btn-light edit-note">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================= CHECKLIST ================= -->
+            <section class="page d-none" id="page-checklist">
+
+                <div class="page-title">Checklist</div>
+                <div class="page-subtitle">
+                    Listes, routines et tâches répétitives.
+                </div>
+
+                <div id="checklistList"></div>
+
+                <div class="card item-card checklist-card">
+
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between align-items-start">
+
+                            <div>
+                                <span class="type-badge badge-checklist">
+                                    CHECKLIST
+                                </span>
+
+                                <div class="item-title mt-2">
+                                    Courses de la semaine
+                                </div>
+
+                                <div class="item-meta">
+                                    <span>
+                                        <i class="bi bi-arrow-repeat"></i>
+                                        Chaque lundi
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <button class="btn btn-sm btn-light edit-checklist">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </div>
+
+                        </div>
+
+                        <div class="check-items mt-3">
+
+                            <div class="check-row">
+                                <input type="checkbox" class="form-check-input check-box" checked>
+                                <span class="check-label">Lait</span>
+                                <div class="check-edit gap-1">
+                                    <button class="btn btn-sm btn-light edit-check">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-light delete-check">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="check-row">
+                                <input type="checkbox" class="form-check-input check-box" checked>
+                                <span class="check-label">Pain</span>
+                                <div class="check-edit gap-1">
+                                    <button class="btn btn-sm btn-light edit-check">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-light delete-check">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="check-row">
+                                <input type="checkbox" class="form-check-input check-box">
+                                <span class="check-label">Légumes</span>
+                                <div class="check-edit gap-1">
+                                    <button class="btn btn-sm btn-light edit-check">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-light delete-check">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="check-row">
+                                <input type="checkbox" class="form-check-input check-box">
+                                <span class="check-label">Fruits</span>
+                                <div class="check-edit gap-1">
+                                    <button class="btn btn-sm btn-light edit-check">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-light delete-check">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="check-edit mt-3">
+                            <button class="btn btn-sm btn-outline-secondary add-check">
+                                <i class="bi bi-plus"></i>
+                                Ajouter une case
+                            </button>
+                        </div>
+
+                        <div class="form-check form-switch mt-3 check-edit">
+                            <input class="form-check-input auto-close" type="checkbox">
+                            <label class="form-check-label small">
+                                Fermer automatiquement lorsque tout est coché
+                            </label>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="card item-card">
+
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between">
+
+                            <div>
+                                <span class="type-badge badge-checklist">
+                                    CHECKLIST
+                                </span>
+
+                                <div class="item-title mt-2">
+                                    Routine du matin
+                                </div>
+                            </div>
+
+                            <span class="text-muted small">
+                                5 / 5
+                            </span>
+
+                        </div>
+
+                        <div class="progress mt-3" style="height:5px;">
+                            <div class="progress-bar" style="width:100%"></div>
+                        </div>
+
+                        <div class="item-meta">
+                            <span>
+                                <i class="bi bi-arrow-repeat"></i>
+                                Tous les jours
+                            </span>
+                            <span>
+                                <i class="bi bi-check-circle"></i>
+                                Terminée
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================= TASKS ================= -->
+            <section class="page d-none" id="page-tasks">
+
+                <div class="page-title">Tâches</div>
+                <div class="page-subtitle">
+                    Suivez l'avancement de vos tâches.
+                </div>
+
+                <div class="d-flex justify-content-between mb-3">
+
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary active">
+                            Toutes
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary">
+                            À faire
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary">
+                            En cours
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary">
+                            Terminées
+                        </button>
+                    </div>
+
+                </div>
+
+                <div id="tasksList">
+
+                    <div class="card item-card">
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between">
+
+                                <div class="flex-grow-1">
+                                    <span class="type-badge badge-task">TÂCHE</span>
+
+                                    <div class="item-title mt-2">
+                                        Préparer présentation client
+                                    </div>
+
+                                    <div class="item-content">
+                                        Finaliser les slides, vérifier les chiffres
+                                        et préparer la démonstration.
+                                    </div>
+
+                                    <div class="item-meta">
+                                        <span>
+                                            <i class="bi bi-calendar"></i>
+                                            Aujourd'hui · 18:00
+                                        </span>
+                                        <span>
+                                            <i class="bi bi-arrow-repeat"></i>
+                                            Une fois
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <select class="form-select form-select-sm task-status-select"
+                                        style="width:120px;height:32px;">
+                                    <option>À faire</option>
+                                    <option selected>En cours</option>
+                                    <option>Terminé</option>
+                                </select>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+
+                    <div class="card item-card">
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between">
+
+                                <div>
+                                    <span class="type-badge badge-task">TÂCHE</span>
+
+                                    <div class="item-title mt-2">
+                                        Réserver hôtel à Bordeaux
+                                    </div>
+
+                                    <div class="item-content">
+                                        Comparer les hôtels proches du centre.
+                                    </div>
+
+                                    <div class="item-meta">
+                                        <span>
+                                            <i class="bi bi-calendar"></i>
+                                            17 septembre
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <select class="form-select form-select-sm task-status-select"
+                                        style="width:120px;height:32px;">
+                                    <option selected>À faire</option>
+                                    <option>En cours</option>
+                                    <option>Terminé</option>
+                                </select>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+
+                    <div class="card item-card">
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between">
+
+                                <div>
+                                    <span class="type-badge badge-task">TÂCHE</span>
+
+                                    <div class="item-title mt-2">
+                                        Envoyer facture client
+                                    </div>
+
+                                    <div class="item-meta">
+                                        <span>
+                                            <i class="bi bi-calendar"></i>
+                                            Hier
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <select class="form-select form-select-sm task-status-select"
+                                        style="width:120px;height:32px;">
+                                    <option>À faire</option>
+                                    <option>En cours</option>
+                                    <option selected>Terminé</option>
+                                </select>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================= KANBAN ================= -->
+            <section class="page d-none" id="page-kanban">
+
+                <div class="page-title">Kanban</div>
+                <div class="page-subtitle">
+                    Vue globale de vos tâches par statut.
+                </div>
+
+                <div class="kanban">
+
+                    <div class="kanban-column">
+
+                        <div class="kanban-column-header">
+                            <span>À faire</span>
+                            <span class="badge text-bg-light">4</span>
+                        </div>
+
+                        <div class="kanban-card">
+                            <div class="fw-semibold small">
+                                Réserver hôtel à Bordeaux
+                            </div>
+                            <small>17 septembre</small>
+                        </div>
+
+                        <div class="kanban-card">
+                            <div class="fw-semibold small">
+                                Préparer budget Q4
+                            </div>
+                            <small>20 septembre</small>
+                        </div>
+
+                        <div class="kanban-card">
+                            <div class="fw-semibold small">
+                                Acheter cadeau Paul
+                            </div>
+                            <small>25 septembre</small>
+                        </div>
+
+                    </div>
+
+
+                    <div class="kanban-column">
+
+                        <div class="kanban-column-header">
+                            <span>En cours</span>
+                            <span class="badge text-bg-light">3</span>
+                        </div>
+
+                        <div class="kanban-card">
+                            <div class="fw-semibold small">
+                                Préparer présentation client
+                            </div>
+                            <small>Aujourd'hui · 18:00</small>
+                        </div>
+
+                        <div class="kanban-card">
+                            <div class="fw-semibold small">
+                                Refonte page d'accueil
+                            </div>
+                            <small>18 septembre</small>
+                        </div>
+
+                    </div>
+
+
+                    <div class="kanban-column">
+
+                        <div class="kanban-column-header">
+                            <span>Terminé</span>
+                            <span class="badge text-bg-light">5</span>
+                        </div>
+
+                        <div class="kanban-card">
+                            <div class="fw-semibold small">
+                                Envoyer facture client
+                            </div>
+                            <small>Terminé hier</small>
+                        </div>
+
+                        <div class="kanban-card">
+                            <div class="fw-semibold small">
+                                Valider devis fournisseur
+                            </div>
+                            <small>Terminé lundi</small>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================= CALENDAR ================= -->
+            <section class="page d-none" id="page-calendar">
+
+                <div class="page-title">Calendrier</div>
+                <div class="page-subtitle">
+                    Toutes vos échéances au même endroit.
+                </div>
+
+                <div class="card p-3">
+
+                    <div class="calendar-toolbar">
+
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-light">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+
+                            <strong>Septembre 2026</strong>
+
+                            <button class="btn btn-sm btn-light">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary active"
+                                    data-calendar-view="month">
+                                Mois
+                            </button>
+
+                            <button class="btn btn-outline-secondary"
+                                    data-calendar-view="week">
+                                Semaine
+                            </button>
+
+                            <button class="btn btn-outline-secondary"
+                                    data-calendar-view="day">
+                                Jour
+                            </button>
+                        </div>
+
+                    </div>
+
+
+                    <div class="calendar-grid">
+
+                        <div class="calendar-weekday">Lun</div>
+                        <div class="calendar-weekday">Mar</div>
+                        <div class="calendar-weekday">Mer</div>
+                        <div class="calendar-weekday">Jeu</div>
+                        <div class="calendar-weekday">Ven</div>
+                        <div class="calendar-weekday">Sam</div>
+                        <div class="calendar-weekday">Dim</div>
+
+
+                        <div class="calendar-day muted">
+                            <div class="day-number">31</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">1</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">2</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">3</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">4</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">5</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">6</div>
+                        </div>
+
+
+                        <div class="calendar-day">
+                            <div class="day-number">7</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">8</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">9</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">10</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">11</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">12</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">13</div>
+                        </div>
+
+
+                        <div class="calendar-day today">
+
+                            <div class="day-number">14</div>
+
+                            <div class="calendar-event note">
+                                🎂 Appeler maman
+                            </div>
+
+                            <div class="calendar-event">
+                                Présentation client
+                            </div>
+
+                            <div class="calendar-event check">
+                                Courses
+                            </div>
+
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">15</div>
+
+                            <div class="calendar-event">
+                                Réunion produit
+                            </div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">16</div>
+
+                            <div class="calendar-event note">
+                                Appeler plombier
+                            </div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">17</div>
+
+                            <div class="calendar-event">
+                                Hôtel Bordeaux
+                            </div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">18</div>
+
+                            <div class="calendar-event">
+                                Refonte homepage
+                            </div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">19</div>
+                        </div>
+
+                        <div class="calendar-day">
+                            <div class="day-number">20</div>
+
+                            <div class="calendar-event">
+                                Budget Q4
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+    <!-- ADD BUTTON -->
+    <button class="btn btn-dark floating-add"
+            data-bs-toggle="modal"
+            data-bs-target="#addModal">
+        <i class="bi bi-plus"></i>
+    </button>
+
+</div>
+
+
+<!-- ================= ADD MODAL ================= -->
+
+<div class="modal fade" id="addModal" tabindex="-1">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content border-0">
+
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvel élément</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <div class="mb-3">
+                    <label class="form-label">Type</label>
+
+                    <div class="btn-group w-100" role="group">
+
+                        <input type="radio"
+                               class="btn-check"
+                               name="itemType"
+                               id="typeNote"
+                               checked>
+
+                        <label class="btn btn-outline-secondary"
+                               for="typeNote">
+                            <i class="bi bi-sticky"></i>
+                            Note
+                        </label>
+
+                        <input type="radio"
+                               class="btn-check"
+                               name="itemType"
+                               id="typeChecklist">
+
+                        <label class="btn btn-outline-secondary"
+                               for="typeChecklist">
+                            <i class="bi bi-list-check"></i>
+                            Checklist
+                        </label>
+
+                        <input type="radio"
+                               class="btn-check"
+                               name="itemType"
+                               id="typeTask">
+
+                        <label class="btn btn-outline-secondary"
+                               for="typeTask">
+                            <i class="bi bi-check-circle"></i>
+                            Tâche
+                        </label>
+
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Titre</label>
+                    <input id="newTitle"
+                           class="form-control"
+                           placeholder="Ex. Préparer la réunion">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Contenu</label>
+                    <textarea id="newContent"
+                              class="form-control"
+                              rows="4"
+                              placeholder="Ajoutez une description..."></textarea>
+                </div>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            Planification
+                        </label>
+
+                        <input type="date"
+                               id="newDate"
+                               class="form-control">
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <label class="form-label">
+                            Récurrence
+                        </label>
+
+                        <select class="form-select" id="newRecurrence">
+                            <option value="">Aucune</option>
+                            <option>Chaque jour</option>
+                            <option>Chaque semaine</option>
+                            <option>Chaque mois</option>
+                            <option>Chaque année</option>
+                        </select>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="btn btn-light"
+                        data-bs-dismiss="modal">
+                    Annuler
+                </button>
+
+                <button class="btn btn-dark"
+                        id="createItem">
+                    Créer
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= JS ================= -->
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>
