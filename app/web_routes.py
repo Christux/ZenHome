@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from .business import (
@@ -160,9 +160,9 @@ def dashboard(db: Session = Depends(get_session)) -> dict:
     counts = db.execute(
         select(
             func.count(Items.id).label("total"),
-            func.sum(ItemStatuses.code == "TODO").label("todo"),
-            func.sum(ItemStatuses.code == "IN_PROGRESS").label("in_progress"),
-            func.sum(ItemStatuses.code == "DONE").label("done"),
+            func.sum(case((ItemStatuses.code == "TODO", 1), else_=0)).label("todo"),
+            func.sum(case((ItemStatuses.code == "IN_PROGRESS", 1), else_=0)).label("in_progress"),
+            func.sum(case((ItemStatuses.code == "DONE", 1), else_=0)).label("done"),
         )
         .join(Items.status)
         .where(Items.is_archived.is_(False))
