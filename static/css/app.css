@@ -210,6 +210,12 @@
             opacity: 1;
         }
 
+        .search-empty {
+            color: var(--text-muted);
+            padding: 28px;
+            text-align: center;
+        }
+
         .floating-add {
             position: fixed;
             right: 36px;

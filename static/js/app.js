@@ -12,6 +12,24 @@ $(function () {
     const statusLabel = { TODO: 'À faire', IN_PROGRESS: 'En cours', DONE: 'Terminée', CANCELLED: 'Annulée' };
     const pagePath = { dashboard: '/', notes: '/notes', checklist: '/checklists', tasks: '/tasks', kanban: '/kanban', calendar: '/calendar' };
 
+    function applySearch() {
+        const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
+        const page = $('.page:not(.d-none)');
+        const cards = page.find('.item-card, .kanban-card');
+        let matches = 0;
+
+        cards.each(function () {
+            const matchesQuery = !query || $(this).text().toLocaleLowerCase('fr-FR').includes(query);
+            $(this).toggleClass('d-none', !matchesQuery);
+            if (matchesQuery) matches += 1;
+        });
+
+        page.find('.search-empty').remove();
+        if (query && cards.length && matches === 0) {
+            page.append('<div class="search-empty">Aucun élément ne correspond à votre recherche.</div>');
+        }
+    }
+
     function showPage(page, push = false) {
         $('.nav-link[data-page]').removeClass('active');
         $(`.nav-link[data-page="${page}"]`).addClass('active');
@@ -20,6 +38,7 @@ $(function () {
         $('#sidebar').removeClass('open');
         document.title = `ZenHome — ${$('.nav-link.active').text().trim() || 'Accueil'}`;
         if (push) history.pushState({ page }, '', pagePath[page]);
+        applySearch();
     }
 
     function itemCard(item) {
@@ -78,6 +97,7 @@ $(function () {
             $('#page-checklist > .item-card').remove();
             const details = await Promise.all(checklists.map(item => api(`/api/items/${item.id}/detail`)));
             $('#checklistList').empty().append(details.map(renderChecklist));
+            applySearch();
         } catch (error) {
             console.error('Chargement ZenHome impossible.', error);
         }
@@ -96,6 +116,7 @@ $(function () {
         showPage($(this).data('page'), true);
     });
     $('#mobileMenu').on('click', () => $('#sidebar').toggleClass('open'));
+    $('#searchInput').on('input search', applySearch);
     $('#createItem').on('click', async function () {
         const title = $('#newTitle').val().trim();
         if (!title) return $('#newTitle').trigger('focus');
