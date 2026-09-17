@@ -75,6 +75,21 @@ $(function () {
         });
     }
 
+    function renderKanban(tasks) {
+        $('[data-kanban-status]').each(function () {
+            const column = $(this);
+            const status = column.data('kanban-status');
+            const columnTasks = tasks.filter(task => task.status_code === status);
+            column.find('.kanban-card').remove();
+            column.find('.kanban-column-count').text(columnTasks.length);
+            column.append(columnTasks.map(task => `
+                <div class="kanban-card" draggable="true" data-item-id="${task.id}" data-item-status="${task.status_code}">
+                    <div class="fw-semibold small">${escapeHtml(task.title)}</div>
+                    ${task.content ? `<small>${escapeHtml(task.content)}</small>` : ''}
+                </div>`).join(''));
+        });
+    }
+
     function renderCalendarView() {
         const days = $('#page-calendar .calendar-day');
         days.removeClass('calendar-hidden');
@@ -117,6 +132,7 @@ $(function () {
             $('#checklistsCount').text(checklists.length);
             $('#notesList').empty().append(notes.map(itemCard));
             $('#tasksList').empty().append(tasks.map(renderTask));
+            renderKanban(tasks);
             applyTaskFilter();
             $('#page-checklist > .item-card').remove();
             const details = await Promise.all(checklists.map(item => api(`/api/items/${item.id}/detail`)));
@@ -215,6 +231,47 @@ $(function () {
             await loadDashboard();
         }
         catch (error) { alert('Impossible de modifier le statut.'); await loadItems(); }
+    });
+
+    $(document).on('dragstart', '.kanban-card', function (event) {
+        $(this).addClass('dragging');
+        event.originalEvent.dataTransfer.effectAllowed = 'move';
+        event.originalEvent.dataTransfer.setData('text/plain', String($(this).data('item-id')));
+    });
+
+    $(document).on('dragend', '.kanban-card', function () {
+        $('.kanban-card').removeClass('dragging');
+        $('[data-kanban-status]').removeClass('drag-over');
+    });
+
+    $(document).on('dragover', '[data-kanban-status]', function (event) {
+        event.preventDefault();
+        event.originalEvent.dataTransfer.dropEffect = 'move';
+        $(this).addClass('drag-over');
+    });
+
+    $(document).on('dragleave', '[data-kanban-status]', function (event) {
+        if (!this.contains(event.relatedTarget)) $(this).removeClass('drag-over');
+    });
+
+    $(document).on('drop', '[data-kanban-status]', async function (event) {
+        event.preventDefault();
+        const column = $(this);
+        const itemId = event.originalEvent.dataTransfer.getData('text/plain');
+        const statusCode = column.data('kanban-status');
+        const card = $(`.kanban-card[data-item-id="${itemId}"]`);
+        if (!itemId || !card.length || card.data('item-status') === statusCode) return column.removeClass('drag-over');
+        column.removeClass('drag-over');
+        card.addClass('dragging');
+        try {
+            await api(`/api/items/${itemId}/status`, { method: 'PATCH', data: { status_code: statusCode } });
+            await loadItems();
+            await loadDashboard();
+        } catch (error) {
+            alert('Impossible de modifier le statut.');
+        } finally {
+            $('.kanban-card').removeClass('dragging');
+        }
     });
 
     $(document).on('click', '.edit-item', async function () {
