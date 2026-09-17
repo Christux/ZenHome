@@ -14,6 +14,7 @@ $(function () {
     let editingItem = null;
     let taskFilter = 'ALL';
     let calendarView = 'month';
+    let recurrenceRules = [];
 
     function applySearch() {
         const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
@@ -143,6 +144,18 @@ $(function () {
         }
     }
 
+    async function loadRecurrenceRules() {
+        try {
+            recurrenceRules = await api('/api/recurrence-rules');
+            $('#newRecurrence').empty().append('<option value="">Aucune</option>');
+            recurrenceRules.forEach(rule => {
+                $('#newRecurrence').append($('<option>', { value: rule.id, text: rule.label }));
+            });
+        } catch (error) {
+            console.error('Chargement des récurrences impossible.', error);
+        }
+    }
+
     async function loadDashboard() {
         try {
             const data = await api('/api/dashboard');
@@ -182,20 +195,22 @@ $(function () {
         $('#itemTypeField').removeClass('d-none');
     }
 
-    function openEditModal(card) {
+    async function openEditModal(card) {
         const item = card.data('item') || {
             id: card.data('item-id'),
             title: card.find('.item-title').text().trim(),
             content: card.find('.item-content').text().trim(),
             type_code: card.data('item-type')
         };
+        const details = await api(`/api/items/${item.id}/detail`);
+        const schedule = details.schedules?.[0];
         editingItem = item;
         $('#itemModalTitle').text('Modifier l’élément');
         $('#createItem').text('Enregistrer');
         $('#newTitle').val(item.title || '');
         $('#newContent').val(item.content || '');
-        $('#newDate').val('');
-        $('#newRecurrence').val('');
+        $('#newDate').val(schedule?.start_at?.slice(0, 10) || '');
+        $('#newRecurrence').val(schedule?.recurrence_rule_id || '');
         $(`#type${item.type_code === 'CHECKLIST' ? 'Checklist' : item.type_code === 'TASK' ? 'Task' : 'Note'}`).prop('checked', true);
         $('input[name="itemType"]').prop('disabled', true);
         $('#itemTypeField').addClass('d-none');
@@ -209,13 +224,31 @@ $(function () {
         try {
             if (editingItem) {
                 await api(`/api/items/${editingItem.id}`, { method: 'PATCH', data: { title, content: $('#newContent').val().trim() || null } });
+                const schedules = await api(`/api/items/${editingItem.id}/schedules`);
+                await Promise.all(schedules.map(schedule => api(`/api/schedules/${schedule.id}`, { method: 'DELETE' })));
+                const date = $('#newDate').val();
+                if (date) {
+                    await api(`/api/items/${editingItem.id}/schedules`, {
+                        method: 'POST',
+                        data: {
+                            start_at: `${date}T09:00:00`,
+                            recurrence_rule_id: $('#newRecurrence').val() ? Number($('#newRecurrence').val()) : null
+                        }
+                    });
+                }
                 bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
-                await loadItems();
+                await loadItems(); await loadDashboard();
                 return;
             }
             const item = await api('/api/items', { method: 'POST', data: { title, content: $('#newContent').val().trim() || null, type_code: typeCode } });
             const date = $('#newDate').val();
-            if (date) await api(`/api/items/${item.id}/schedules`, { method: 'POST', data: { start_at: `${date}T09:00:00` } });
+            if (date) await api(`/api/items/${item.id}/schedules`, {
+                method: 'POST',
+                data: {
+                    start_at: `${date}T09:00:00`,
+                    recurrence_rule_id: $('#newRecurrence').val() ? Number($('#newRecurrence').val()) : null
+                }
+            });
             $('#newTitle, #newContent, #newDate').val('');
             bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
             await loadItems(); await loadDashboard(); showPage(typeCode === 'TASK' ? 'tasks' : typeCode === 'CHECKLIST' ? 'checklist' : 'notes');
@@ -275,7 +308,11 @@ $(function () {
     });
 
     $(document).on('click', '.edit-item', async function () {
-        openEditModal($(this).closest('.item-card'));
+        try {
+            await openEditModal($(this).closest('.item-card'));
+        } catch (error) {
+            alert('Impossible de charger la planification.');
+        }
     });
 
     $(document).on('click', '.edit-checklist', function () { $(this).closest('.checklist-card').toggleClass('editing'); });
@@ -303,5 +340,5 @@ $(function () {
     });
 
     const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
-    showPage(initialPage); renderCalendarView(); loadItems(); loadDashboard();
+    showPage(initialPage); renderCalendarView(); loadRecurrenceRules(); loadItems(); loadDashboard();
 });

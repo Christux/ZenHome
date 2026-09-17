@@ -297,6 +297,15 @@ INSERT INTO recurrence_types (code, label, sort_order) VALUES
     ('HALF_YEAR', 'Semestriel',   50),
     ('YEARLY',    'Annuel',       60);
 
+INSERT INTO recurrence_rules (recurrence_type_id, label, expression)
+SELECT id, 'Chaque jour', 'DAILY' FROM recurrence_types WHERE code = 'DAILY';
+INSERT INTO recurrence_rules (recurrence_type_id, label, expression)
+SELECT id, 'Chaque semaine', 'WEEKLY' FROM recurrence_types WHERE code = 'WEEKLY';
+INSERT INTO recurrence_rules (recurrence_type_id, label, expression)
+SELECT id, 'Chaque mois', 'MONTHLY' FROM recurrence_types WHERE code = 'MONTHLY';
+INSERT INTO recurrence_rules (recurrence_type_id, label, expression)
+SELECT id, 'Chaque année', 'YEARLY' FROM recurrence_types WHERE code = 'YEARLY';
+
 INSERT INTO occurrence_statuses (code, label, sort_order) VALUES
     ('PENDING',   'À venir',  10),
     ('COMPLETED', 'Terminée', 20),
