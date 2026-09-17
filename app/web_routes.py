@@ -87,8 +87,10 @@ def home() -> FileResponse:
     return FileResponse(PROJECT_DIR / "index.html")
 
 
-@public_router.get("/{page:notes|checklists|tasks|kanban|calendar}", include_in_schema=False)
+@public_router.get("/{page}", include_in_schema=False)
 def web_page(page: str) -> FileResponse:
+    if page not in {"notes", "checklists", "tasks", "kanban", "calendar"}:
+        raise HTTPException(status_code=404, detail="Page introuvable.")
     return FileResponse(PROJECT_DIR / "index.html")
 
 

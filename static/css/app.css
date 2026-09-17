@@ -216,6 +216,11 @@
             text-align: center;
         }
 
+        .search-hidden,
+        .task-filter-hidden {
+            display: none !important;
+        }
+
         .floating-add {
             position: fixed;
             right: 36px;
