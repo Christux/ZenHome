@@ -355,13 +355,39 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            gap: 12px;
         }
 
         .calendar-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(7, minmax(0, 1fr));
             border-top: 1px solid var(--border);
             border-left: 1px solid var(--border);
+            max-width: 100%;
+        }
+
+        #page-calendar[data-calendar-view="week"] .calendar-grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+
+        #page-calendar[data-calendar-view="day"] .calendar-grid {
+            grid-template-columns: 1fr;
+        }
+
+        #page-calendar .calendar-hidden {
+            display: none;
+        }
+
+        #page-calendar[data-calendar-view="day"] .calendar-weekday {
+            display: none;
+        }
+
+        #page-calendar[data-calendar-view="week"] .calendar-day {
+            min-height: 260px;
+        }
+
+        #page-calendar[data-calendar-view="day"] .calendar-day.today {
+            min-height: 360px;
         }
 
         .calendar-weekday {
@@ -415,6 +441,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            min-width: 0;
         }
 
         .calendar-event.note {
@@ -520,5 +547,69 @@
 
             .calendar-event {
                 font-size: 8px;
+            }
+
+            .calendar-grid {
+                overflow-x: auto;
+                grid-template-columns: repeat(7, minmax(76px, 1fr));
+            }
+
+            .calendar-toolbar {
+                flex-wrap: wrap;
+            }
+
+            .calendar-toolbar > .btn-group {
+                margin-left: auto;
+            }
+
+            .floating-add {
+                right: 16px;
+                bottom: 16px;
+            }
+        }
+
+        @media(max-width: 560px) {
+            .content {
+                padding: 22px 12px 90px;
+            }
+
+            .page-title {
+                font-size: 24px;
+            }
+
+            .page-subtitle {
+                margin-bottom: 20px;
+            }
+
+            #page-calendar > .card {
+                padding: 12px !important;
+            }
+
+            .calendar-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .calendar-toolbar > .d-flex {
+                justify-content: center;
+            }
+
+            .calendar-toolbar > .btn-group {
+                width: 100%;
+                margin-left: 0;
+            }
+
+            .calendar-toolbar > .btn-group .btn {
+                flex: 1;
+            }
+
+            .topbar {
+                gap: 8px;
+                padding: 0 12px;
+            }
+
+            .topbar .input-group {
+                flex: 1;
+                max-width: none !important;
             }
         }

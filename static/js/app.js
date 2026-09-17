@@ -13,6 +13,7 @@ $(function () {
     const pagePath = { dashboard: '/', notes: '/notes', checklist: '/checklists', tasks: '/tasks', kanban: '/kanban', calendar: '/calendar' };
     let editingItem = null;
     let taskFilter = 'ALL';
+    let calendarView = 'month';
 
     function applySearch() {
         const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
@@ -72,6 +73,14 @@ $(function () {
             const matchesFilter = taskFilter === 'ALL' || $(this).data('item-status') === taskFilter;
             $(this).toggleClass('task-filter-hidden', !matchesFilter);
         });
+    }
+
+    function renderCalendarView() {
+        const days = $('#page-calendar .calendar-day');
+        days.removeClass('calendar-hidden');
+        if (calendarView === 'week') days.slice(0, 14).addClass('calendar-hidden');
+        if (calendarView === 'day') days.not('.today').addClass('calendar-hidden');
+        $('#page-calendar').attr('data-calendar-view', calendarView);
     }
 
     function renderChecklist(item) {
@@ -137,6 +146,12 @@ $(function () {
         $('#taskFilters [data-task-status]').removeClass('active');
         $(this).addClass('active');
         applyTaskFilter();
+    });
+    $('[data-calendar-view]').on('click', function () {
+        calendarView = $(this).data('calendar-view');
+        $('[data-calendar-view]').removeClass('active');
+        $(this).addClass('active');
+        renderCalendarView();
     });
     $('.floating-add').on('click', prepareCreateModal);
 
@@ -231,5 +246,5 @@ $(function () {
     });
 
     const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
-    showPage(initialPage); loadItems(); loadDashboard();
+    showPage(initialPage); renderCalendarView(); loadItems(); loadDashboard();
 });
