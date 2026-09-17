@@ -227,6 +227,18 @@ def add_checklist_item(item_id: int, body: ChecklistInput, db: Session = Depends
     return as_dict(row)
 
 
+@router.post("/items/{item_id}/checklist-items/reset")
+def reset_checklist(item_id: int, db: Session = Depends(get_session)) -> dict:
+    item = require(db, Items, item_id, "Checklist")
+    reset_count = 0
+    for row in item.checklist_items:
+        if row.is_checked or row.checked_at is not None:
+            row.is_checked = False
+            row.checked_at = None
+            reset_count += 1
+    return {"item_id": item_id, "reset_count": reset_count}
+
+
 @router.patch("/checklist-items/{checklist_item_id}")
 def edit_checklist_item(checklist_item_id: int, body: ChecklistInput, db: Session = Depends(get_session)) -> dict:
     row = require(db, ChecklistItems, checklist_item_id, "Ligne de checklist")

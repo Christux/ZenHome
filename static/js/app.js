@@ -16,6 +16,7 @@ $(function () {
     let calendarView = 'month';
     let recurrenceRules = [];
     let checklistItemOwnerId = null;
+    let confirmationResolve = null;
 
     function applySearch() {
         const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
@@ -111,7 +112,7 @@ $(function () {
         const card = $(`<div class="card item-card checklist-card" data-item-id="${item.id}" data-item-type="CHECKLIST"><div class="card-body">
             <div class="d-flex justify-content-between align-items-start"><div><span class="type-badge badge-checklist">CHECKLIST</span>
             <div class="item-title mt-2">${escapeHtml(item.title)}</div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button></div></div>
-            <div class="check-items mt-3">${rows}</div><div class="check-edit mt-3"><button class="btn btn-sm btn-outline-secondary add-check"><i class="bi bi-plus"></i> Ajouter une case</button></div>
+            <div class="check-items mt-3">${rows}</div><div class="check-edit mt-3 gap-2"><button class="btn btn-sm btn-outline-secondary add-check"><i class="bi bi-plus"></i> Ajouter une case</button><button class="btn btn-sm btn-outline-secondary reset-checklist"><i class="bi bi-arrow-counterclockwise"></i> Réinitialiser</button></div>
             <div class="progress mt-3" style="height:5px;"><div class="progress-bar"></div></div></div></div>`);
         card.data('item', { id: item.id, title: item.title, content: item.content, type_code: 'CHECKLIST' });
         updateChecklistProgress(card);
@@ -190,6 +191,23 @@ $(function () {
         $('#checklistItemLabel').val('');
         bootstrap.Modal.getOrCreateInstance(document.getElementById('checklistItemModal')).show();
         $('#checklistItemModal').one('shown.bs.modal', () => $('#checklistItemLabel').trigger('focus'));
+    }
+
+    function requestConfirmation({ title, message, confirmLabel = 'Confirmer', variant = 'dark' }) {
+        return new Promise(resolve => {
+            confirmationResolve = resolve;
+            $('#confirmationModalTitle').text(title);
+            $('#confirmationModalMessage').text(message);
+            $('#confirmAction').text(confirmLabel).removeClass('btn-dark btn-danger btn-primary').addClass(`btn-${variant}`);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmationModal')).show();
+        });
+    }
+
+    function resolveConfirmation(value) {
+        if (!confirmationResolve) return;
+        const resolve = confirmationResolve;
+        confirmationResolve = null;
+        resolve(value);
     }
 
     function prepareCreateModal() {
@@ -346,6 +364,24 @@ $(function () {
             $(this).prop('disabled', false);
         }
     });
+    $(document).on('click', '.reset-checklist', async function () {
+        const card = $(this).closest('.checklist-card');
+        const confirmed = await requestConfirmation({
+            title: 'Réinitialiser la checklist ?',
+            message: 'Toutes les cases seront décochées.',
+            confirmLabel: 'Réinitialiser',
+            variant: 'primary'
+        });
+        if (!confirmed) return;
+        $(this).prop('disabled', true);
+        try {
+            await api(`/api/items/${card.data('item-id')}/checklist-items/reset`, { method: 'POST' });
+            await loadItems();
+        } catch (error) {
+            alert('Impossible de réinitialiser la checklist.');
+            $(this).prop('disabled', false);
+        }
+    });
     $(document).on('click', '.edit-check', async function () {
         const row = $(this).closest('.check-row'), label = prompt('Modifier le libellé :', row.find('.check-label').text());
         if (!label) return;
@@ -353,10 +389,22 @@ $(function () {
         catch (error) { alert('Impossible de modifier cette case.'); }
     });
     $(document).on('click', '.delete-check', async function () {
-        if (!confirm('Supprimer cette case ?')) return;
+        const confirmed = await requestConfirmation({
+            title: 'Supprimer cette case ?',
+            message: 'Cette action est irréversible.',
+            confirmLabel: 'Supprimer',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
         try { await api(`/api/checklist-items/${$(this).closest('.check-row').data('checklist-item-id')}`, { method: 'DELETE' }); await loadItems(); }
         catch (error) { alert('Impossible de supprimer cette case.'); }
     });
+
+    $('#confirmAction').on('click', function () {
+        resolveConfirmation(true);
+        bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
+    });
+    $('#confirmationModal').on('hidden.bs.modal', () => resolveConfirmation(false));
 
     const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
     showPage(initialPage); renderCalendarView(); loadRecurrenceRules(); loadItems(); loadDashboard();
