@@ -103,6 +103,9 @@ $(function () {
             const [notes, tasks, checklists] = await Promise.all([
                 api('/api/items?item_type=NOTE'), api('/api/items?item_type=TASK'), api('/api/items?item_type=CHECKLIST')
             ]);
+            $('#notesCount').text(notes.length);
+            $('#tasksCount').text(tasks.length);
+            $('#checklistsCount').text(checklists.length);
             $('#notesList').empty().append(notes.map(itemCard));
             $('#tasksList').empty().append(tasks.map(renderTask));
             applyTaskFilter();
