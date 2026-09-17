@@ -15,6 +15,7 @@ $(function () {
     let taskFilter = 'ALL';
     let calendarView = 'month';
     let recurrenceRules = [];
+    let checklistItemOwnerId = null;
 
     function applySearch() {
         const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
@@ -184,6 +185,13 @@ $(function () {
     });
     $('.floating-add').on('click', prepareCreateModal);
 
+    function openChecklistItemModal(card) {
+        checklistItemOwnerId = card.data('item-id');
+        $('#checklistItemLabel').val('');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('checklistItemModal')).show();
+        $('#checklistItemModal').one('shown.bs.modal', () => $('#checklistItemLabel').trigger('focus'));
+    }
+
     function prepareCreateModal() {
         editingItem = null;
         $('#itemModalTitle').text('Nouvel élément');
@@ -322,10 +330,21 @@ $(function () {
         catch (error) { alert('Impossible de modifier la checklist.'); await loadItems(); }
     });
     $(document).on('click', '.add-check', async function () {
-        const card = $(this).closest('.checklist-card'), label = prompt('Nom de la nouvelle case :');
-        if (!label) return;
-        try { await api(`/api/items/${card.data('item-id')}/checklist-items`, { method: 'POST', data: { label } }); await loadItems(); }
-        catch (error) { alert('Impossible d’ajouter cette case.'); }
+        openChecklistItemModal($(this).closest('.checklist-card'));
+    });
+    $('#addChecklistItem').on('click', async function () {
+        const label = $('#checklistItemLabel').val().trim();
+        if (!label || !checklistItemOwnerId) return $('#checklistItemLabel').trigger('focus');
+        $(this).prop('disabled', true);
+        try {
+            await api(`/api/items/${checklistItemOwnerId}/checklist-items`, { method: 'POST', data: { label } });
+            bootstrap.Modal.getInstance(document.getElementById('checklistItemModal')).hide();
+            await loadItems();
+        } catch (error) {
+            alert('Impossible d’ajouter cette case.');
+        } finally {
+            $(this).prop('disabled', false);
+        }
     });
     $(document).on('click', '.edit-check', async function () {
         const row = $(this).closest('.check-row'), label = prompt('Modifier le libellé :', row.find('.check-label').text());
