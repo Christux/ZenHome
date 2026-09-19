@@ -64,6 +64,7 @@ $(function initializeApp() {
     let editingItem = null;
     let taskFilter = 'ALL';
     let calendarView = 'month';
+    let calendarDate = new Date();
     let recurrenceRules = [];
     let checklistItemOwnerId = null;
     let confirmationResolve = null;
@@ -188,13 +189,89 @@ $(function initializeApp() {
         });
     }
 
-    /** Apply the selected calendar view to the calendar grid. */
-    function renderCalendarView() {
-        const days = $('#page-calendar .calendar-day');
-        days.removeClass('calendar-hidden');
-        if (calendarView === 'week') days.slice(0, 14).addClass('calendar-hidden');
-        if (calendarView === 'day') days.not('.today').addClass('calendar-hidden');
+    /** @param {Date} value Date to format for the occurrences API. @returns {string} Local ISO date. */
+    function calendarDateValue(value) {
+        return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+    }
+
+    /** @param {Date} value Date to clone. @param {number} amount Number of days. @returns {Date} Shifted date. */
+    function shiftCalendarDate(value, amount) {
+        const shifted = new Date(value);
+        shifted.setDate(shifted.getDate() + amount);
+        return shifted;
+    }
+
+    /** @param {Date} value Date to clone. @param {number} amount Number of months. @returns {Date} Shifted month. */
+    function shiftCalendarMonth(value, amount) {
+        const targetMonth = new Date(value.getFullYear(), value.getMonth() + amount, 1);
+        const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate();
+        return new Date(targetMonth.getFullYear(), targetMonth.getMonth(), Math.min(value.getDate(), lastDay));
+    }
+
+    /** @returns {{start: Date, end: Date, days: Date[]}} Dates visible in the selected calendar view. */
+    function calendarRange() {
+        const mondayOffset = (calendarDate.getDay() + 6) % 7;
+        let start = new Date(calendarDate);
+        let dayCount = 1;
+        if (calendarView === 'month') {
+            start = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1);
+            start = shiftCalendarDate(start, (start.getDay() + 6) % 7 * -1);
+            dayCount = 42;
+        } else if (calendarView === 'week') {
+            start = shiftCalendarDate(start, -mondayOffset);
+            dayCount = 7;
+        }
+        const days = Array.from({ length: dayCount }, (_, index) => shiftCalendarDate(start, index));
+        return { start, end: shiftCalendarDate(start, dayCount - 1), days };
+    }
+
+    /** Update the calendar heading for the selected view. */
+    function renderCalendarLabel(range) {
+        const formatter = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
+        let label = formatter.format(calendarDate);
+        if (calendarView === 'week') {
+            label = `${range.start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${range.end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+        } else if (calendarView === 'day') {
+            label = calendarDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+        $('#calendarPeriodLabel').text(label.charAt(0).toUpperCase() + label.slice(1));
+    }
+
+    /** @param {Date} day Day to render. @param {object[]} occurrences Occurrences for the visible range. @param {boolean} muted Whether the day belongs to another month. @returns {string} Day HTML. */
+    function renderCalendarDay(day, occurrences, muted) {
+        const dayValue = calendarDateValue(day);
+        const events = occurrences.filter(occurrence => occurrence.starts_at.startsWith(dayValue));
+        const today = dayValue === calendarDateValue(new Date());
+        const eventHtml = events.map(occurrence => `
+            <div class="calendar-event ${occurrence.status_code.toLowerCase()}" title="${escapeHtml(occurrence.item_title)}" data-occurrence-id="${occurrence.id}">
+                ${escapeHtml(occurrence.item_title)}
+            </div>`).join('');
+        return `<div class="calendar-day${muted ? ' muted' : ''}${today ? ' today' : ''}" data-calendar-date="${dayValue}">
+            <div class="day-number">${day.getDate()}</div>${eventHtml}
+        </div>`;
+    }
+
+    /** Load real occurrences and render the selected calendar view. */
+    async function renderCalendarView() {
+        const range = calendarRange();
+        const endExclusive = shiftCalendarDate(range.end, 1);
         $('#page-calendar').attr('data-calendar-view', calendarView);
+        renderCalendarLabel(range);
+        const weekdays = calendarView === 'day' ? '' : ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+            .map(day => `<div class="calendar-weekday">${day}</div>`).join('');
+        $('#calendarGrid').html(`${weekdays}<div class="calendar-loading">Chargement...</div>`);
+        try {
+            const occurrences = await api(`/api/occurrences?start_at=${calendarDateValue(range.start)}T00:00:00&end_at=${calendarDateValue(endExclusive)}T00:00:00`);
+            const cells = range.days.map(day => renderCalendarDay(
+                day,
+                occurrences,
+                calendarView === 'month' && day.getMonth() !== calendarDate.getMonth(),
+            )).join('');
+            $('#calendarGrid').html(`${weekdays}${cells}`);
+        } catch (error) {
+            $('#calendarGrid').html(`${weekdays}<div class="calendar-loading">Impossible de charger les occurrences.</div>`);
+            console.error('Chargement du calendrier impossible.', error);
+        }
     }
 
     /** @param {Item} item Checklist to render. @returns {JQuery} The checklist card. */
@@ -280,7 +357,9 @@ $(function initializeApp() {
     /** Navigate to the page selected in the sidebar. */
     $('.nav-link[data-page]').on('click', function handlePageNavigation(event) {
         event.preventDefault();
-        showPage($(this).data('page'), true);
+        const page = $(this).data('page');
+        showPage(page, true);
+        if (page === 'calendar') renderCalendarView();
     });
     /** Toggle the mobile sidebar visibility. */
     $('#mobileMenu').on('click', function toggleMobileMenu() {
@@ -299,6 +378,14 @@ $(function initializeApp() {
         calendarView = $(this).data('calendar-view');
         $('[data-calendar-view]').removeClass('active');
         $(this).addClass('active');
+        renderCalendarView();
+    });
+    $('#calendarPrevious').on('click', function showPreviousCalendarPeriod() {
+        calendarDate = calendarView === 'month' ? shiftCalendarMonth(calendarDate, -1) : shiftCalendarDate(calendarDate, calendarView === 'week' ? -7 : -1);
+        renderCalendarView();
+    });
+    $('#calendarNext').on('click', function showNextCalendarPeriod() {
+        calendarDate = calendarView === 'month' ? shiftCalendarMonth(calendarDate, 1) : shiftCalendarDate(calendarDate, calendarView === 'week' ? 7 : 1);
         renderCalendarView();
     });
     $('.floating-add').on('click', prepareCreateModal);

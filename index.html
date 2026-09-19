@@ -885,13 +885,13 @@
                     <div class="calendar-toolbar">
 
                         <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-sm btn-light">
+                            <button class="btn btn-sm btn-light" id="calendarPrevious" title="Période précédente">
                                 <i class="bi bi-chevron-left"></i>
                             </button>
 
-                            <strong>Septembre 2026</strong>
+                            <strong id="calendarPeriodLabel"></strong>
 
-                            <button class="btn btn-sm btn-light">
+                            <button class="btn btn-sm btn-light" id="calendarNext" title="Période suivante">
                                 <i class="bi bi-chevron-right"></i>
                             </button>
                         </div>
@@ -916,138 +916,7 @@
                     </div>
 
 
-                    <div class="calendar-grid">
-
-                        <div class="calendar-weekday">Lun</div>
-                        <div class="calendar-weekday">Mar</div>
-                        <div class="calendar-weekday">Mer</div>
-                        <div class="calendar-weekday">Jeu</div>
-                        <div class="calendar-weekday">Ven</div>
-                        <div class="calendar-weekday">Sam</div>
-                        <div class="calendar-weekday">Dim</div>
-
-
-                        <div class="calendar-day muted">
-                            <div class="day-number">31</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">1</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">2</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">3</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">4</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">5</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">6</div>
-                        </div>
-
-
-                        <div class="calendar-day">
-                            <div class="day-number">7</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">8</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">9</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">10</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">11</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">12</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">13</div>
-                        </div>
-
-
-                        <div class="calendar-day today">
-
-                            <div class="day-number">14</div>
-
-                            <div class="calendar-event note">
-                                🎂 Appeler maman
-                            </div>
-
-                            <div class="calendar-event">
-                                Présentation client
-                            </div>
-
-                            <div class="calendar-event check">
-                                Courses
-                            </div>
-
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">15</div>
-
-                            <div class="calendar-event">
-                                Réunion produit
-                            </div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">16</div>
-
-                            <div class="calendar-event note">
-                                Appeler plombier
-                            </div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">17</div>
-
-                            <div class="calendar-event">
-                                Hôtel Bordeaux
-                            </div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">18</div>
-
-                            <div class="calendar-event">
-                                Refonte homepage
-                            </div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">19</div>
-                        </div>
-
-                        <div class="calendar-day">
-                            <div class="day-number">20</div>
-
-                            <div class="calendar-event">
-                                Budget Q4
-                            </div>
-                        </div>
-
-                    </div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
 
                 </div>
 
