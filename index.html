@@ -838,6 +838,18 @@
 
             <div class="modal-body">
 
+                <div class="mb-3 d-none" id="itemTypeCreateField">
+                    <div class="form-label">Type d’élément</div>
+                    <div class="btn-group w-100" role="group" aria-label="Type d’élément">
+                        <input type="radio" class="btn-check" name="newItemType" id="newItemTypeNote" value="NOTE" autocomplete="off" checked>
+                        <label class="btn btn-outline-secondary" for="newItemTypeNote">Note</label>
+                        <input type="radio" class="btn-check" name="newItemType" id="newItemTypeChecklist" value="CHECKLIST" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="newItemTypeChecklist">Checklist</label>
+                        <input type="radio" class="btn-check" name="newItemType" id="newItemTypeTask" value="TASK" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="newItemTypeTask">Tâche</label>
+                    </div>
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Titre</label>
                     <input id="newTitle"

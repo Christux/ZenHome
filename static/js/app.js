@@ -454,21 +454,36 @@ $(function initializeApp() {
         editingItem = null;
         const activePage = $('.page:not(.d-none)').attr('id')?.replace('page-', '');
         createItemType = pageItemType[activePage] || 'NOTE';
+        $('#itemTypeCreateField').toggleClass('d-none', activePage !== 'dashboard');
+        $(`input[name="newItemType"][value="${createItemType}"]`).prop('checked', true);
         const today = new Date();
         const todayValue = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
-        $('#itemModalTitle').text(`Nouvelle ${itemTypeLabel[createItemType]}`);
-        $('#createItem').text('Créer');
+        updateCreateModalFields();
         $('#newTitle, #newContent').val('');
         $('#newDate').val(todayValue);
         $('#newRecurrence').val('');
+        $('#newChecklistItems').empty();
+        if (createItemType === 'CHECKLIST') appendNewChecklistItem();
+    }
+
+    /** Update creation fields that depend on the selected item type. */
+    function updateCreateModalFields() {
+        $('#itemModalTitle').text(`Nouvelle ${itemTypeLabel[createItemType]}`);
+        $('#createItem').text('Créer');
         const supportsRecurrence = createItemType !== 'TASK';
         $('#dateCreateLabel').text(createItemType === 'TASK' ? 'Date d’échéance' : 'Planification');
         $('#recurrenceCreateField').toggleClass('d-none', !supportsRecurrence);
         $('#dateCreateField').toggleClass('col-md-6', supportsRecurrence).toggleClass('col-12', !supportsRecurrence);
         $('#checklistCreateFields').toggleClass('d-none', createItemType !== 'CHECKLIST');
+    }
+
+    /** Change the item type selected from the dashboard creation modal. */
+    $('input[name="newItemType"]').on('change', function handleCreateItemTypeChange() {
+        createItemType = $('input[name="newItemType"]:checked').val();
+        updateCreateModalFields();
         $('#newChecklistItems').empty();
         if (createItemType === 'CHECKLIST') appendNewChecklistItem();
-    }
+    });
 
     /** Add an empty checklist row to the item creation form. */
     function appendNewChecklistItem() {
@@ -513,6 +528,7 @@ $(function initializeApp() {
         editingItem = item;
         $('#itemModalTitle').text('Modifier l’élément');
         $('#createItem').text('Enregistrer');
+        $('#itemTypeCreateField').addClass('d-none');
         $('#newTitle').val(item.title || '');
         $('#newContent').val(item.content || '');
         $('#newDate').val(schedule?.start_at?.slice(0, 10) || '');
