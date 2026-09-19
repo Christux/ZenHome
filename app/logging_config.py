@@ -8,6 +8,7 @@ import os
 def configure_logging() -> None:
     """Configure les logs applicatifs et ceux d'Uvicorn selon la variable LOG_LEVEL."""
     level = os.getenv("LOG_LEVEL", "INFO").upper()
+    is_development = os.getenv("ZENHOME_ENV", "production").lower() in {"development", "dev"}
     logging.config.dictConfig(
         {
             "version": 1,
@@ -29,6 +30,11 @@ def configure_logging() -> None:
                 "handlers": ["console"],
             },
             "loggers": {
+                "sqlalchemy.engine": {
+                    "level": "INFO" if is_development else "WARNING",
+                    "handlers": ["console"],
+                    "propagate": False,
+                },
                 "uvicorn": {"level": level, "handlers": ["console"], "propagate": False},
                 "uvicorn.error": {"level": level, "handlers": ["console"], "propagate": False},
                 "uvicorn.access": {"level": level, "handlers": ["console"], "propagate": False},

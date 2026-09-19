@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from .globals import DATABASE_PATH, DATABASE_URL
+from .globals import DATABASE_PATH, DATABASE_URL, ZENHOME_ENV
 from .models import Base, RecurrenceRules, RecurrenceTypes, Users
 
 
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
+    echo=ZENHOME_ENV in {"development", "dev"},
     use_insertmanyvalues=False,
 )
 
