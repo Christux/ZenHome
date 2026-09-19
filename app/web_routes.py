@@ -19,7 +19,7 @@ from .business import (
     StatusInput,
 )
 from .database import get_session
-from .globals import PROJECT_DIR
+from .globals import PROJECT_DIR, ZENHOME_ENV
 from .models import (
     ChecklistItems,
     ItemStatuses,
@@ -105,6 +105,23 @@ def web_page(page: str) -> FileResponse:
 def health() -> dict[str, str]:
     """Checks whether the service is responding correctly."""
     return {"status": "ok"}
+
+
+if ZENHOME_ENV == "development":
+    @public_router.get("/api/dev/version")
+    def development_version() -> dict[str, str]:
+        """Returns a version that changes when development files are edited."""
+        watched_files = [PROJECT_DIR / "index.html"]
+        watched_files.extend(path for path in (PROJECT_DIR / "app").rglob("*.py") if path.is_file())
+        watched_files.extend(
+            path for path in (PROJECT_DIR / "static").rglob("*")
+            if path.is_file() and not path.name.startswith(".")
+        )
+        signature = "|".join(
+            f"{path.relative_to(PROJECT_DIR)}:{path.stat().st_mtime_ns}:{path.stat().st_size}"
+            for path in sorted(watched_files)
+        )
+        return {"signature": signature}
 
 
 @public_router.get("/api/items")

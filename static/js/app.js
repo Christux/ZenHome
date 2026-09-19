@@ -71,6 +71,29 @@ $(function initializeApp() {
     const pageItemType = { notes: 'NOTE', checklist: 'CHECKLIST', tasks: 'TASK', kanban: 'TASK' };
     const itemTypeLabel = { NOTE: 'note', CHECKLIST: 'checklist', TASK: 'tâche' };
 
+    /** Reload the page when backend or frontend files change in development. */
+    function startDevelopmentReload() {
+        let previousSignature = null;
+        const checkForChanges = async function checkForChanges() {
+            try {
+                const response = await fetch('/api/dev/version', { cache: 'no-store' });
+                if (response.status === 404) return false;
+                if (!response.ok) return true;
+                const { signature } = await response.json();
+                if (previousSignature && signature !== previousSignature) location.reload();
+                previousSignature = signature;
+            } catch (error) {
+                // The development server may be restarting after a backend edit.
+            }
+            return true;
+        };
+
+        const interval = setInterval(async function pollDevelopmentVersion() {
+            if (!await checkForChanges()) clearInterval(interval);
+        }, 1000);
+        checkForChanges();
+    }
+
     /** Filter the visible page cards using the search field. */
     function applySearch() {
         const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
@@ -608,6 +631,7 @@ $(function initializeApp() {
         resolveConfirmation(false);
     });
 
+    startDevelopmentReload();
     const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
     showPage(initialPage); renderCalendarView(); loadRecurrenceRules(); loadItems(); loadDashboard();
 });
