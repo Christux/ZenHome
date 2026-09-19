@@ -59,6 +59,7 @@ $(function initializeApp() {
     /** @param {string|null|undefined} value @returns {string} Escaped HTML text. */
     const escapeHtml = (value = '') => $('<div>').text(value).html();
     const typeClass = { NOTE: 'badge-note', CHECKLIST: 'badge-checklist', TASK: 'badge-task' };
+    const calendarTypeClass = { NOTE: 'note', CHECKLIST: 'checklist', TASK: 'task' };
     const statusLabel = { TODO: 'À faire', IN_PROGRESS: 'En cours', DONE: 'Terminée', CANCELLED: 'Annulée' };
     const pagePath = { dashboard: '/', notes: '/notes', checklist: '/checklists', tasks: '/tasks', kanban: '/kanban', calendar: '/calendar' };
     let editingItem = null;
@@ -243,7 +244,7 @@ $(function initializeApp() {
         const events = occurrences.filter(occurrence => occurrence.starts_at.startsWith(dayValue));
         const today = dayValue === calendarDateValue(new Date());
         const eventHtml = events.map(occurrence => `
-            <div class="calendar-event ${occurrence.status_code.toLowerCase()}" title="${escapeHtml(occurrence.item_title)}" data-occurrence-id="${occurrence.id}">
+            <div class="calendar-event ${calendarTypeClass[occurrence.type_code] || ''}" title="${escapeHtml(occurrence.item_title)}" data-occurrence-id="${occurrence.id}">
                 ${escapeHtml(occurrence.item_title)}
             </div>`).join('');
         return `<div class="calendar-day${muted ? ' muted' : ''}${today ? ' today' : ''}" data-calendar-date="${dayValue}">

@@ -386,14 +386,23 @@ def delete_schedule(schedule_id: int, db: Session = Depends(get_session)) -> Non
 @router.get("/occurrences")
 def occurrences(start_at: str | None = None, end_at: str | None = None, db: Session = Depends(get_session)) -> list[dict[str, Any]]:
     """Returns occurrences filtered by period."""
-    query = select(ScheduleOccurrences, Items.title.label("item_title"), OccurrenceStatuses.code.label("status_code")) \
-        .join(ScheduleOccurrences.schedule).join(Schedules.item).join(ScheduleOccurrences.status)
+    query = select(
+        ScheduleOccurrences,
+        Items.title.label("item_title"),
+        ItemTypes.code.label("type_code"),
+        OccurrenceStatuses.code.label("status_code"),
+    ).join(ScheduleOccurrences.schedule).join(Schedules.item).join(Items.type).join(ScheduleOccurrences.status)
     if start_at:
         query = query.where(ScheduleOccurrences.starts_at >= start_at)
     if end_at:
         query = query.where(ScheduleOccurrences.starts_at <= end_at)
     rows = db.execute(query.order_by(ScheduleOccurrences.starts_at)).all()
-    return [{**as_dict(row[0]), "item_title": row.item_title, "status_code": row.status_code} for row in rows]
+    return [{
+        **as_dict(row[0]),
+        "item_title": row.item_title,
+        "type_code": row.type_code,
+        "status_code": row.status_code,
+    } for row in rows]
 
 
 @router.patch("/occurrences/{occurrence_id}/status")

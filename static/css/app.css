@@ -447,8 +447,6 @@ body {
     font-size: 10px;
     padding: 4px 6px;
     border-radius: 5px;
-    background: #edf0ff;
-    color: #4b55a9;
     margin-bottom: 4px;
     white-space: nowrap;
     overflow: hidden;
@@ -457,13 +455,18 @@ body {
 }
 
 .calendar-event.note {
-    background: #fff3d7;
-    color: #936a00;
+    background: #fff4d8;
+    color: #9a6d00;
 }
 
-.calendar-event.check {
-    background: #e4f6eb;
-    color: #26714a;
+.calendar-event.checklist {
+    background: #e4f7ed;
+    color: #24764d;
+}
+
+.calendar-event.task {
+    background: #e8edff;
+    color: #4a58a8;
 }
 
 .mobile-menu {
