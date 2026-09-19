@@ -328,6 +328,7 @@ $(function initializeApp() {
         $('#newDate').val(todayValue);
         $('#newRecurrence').val('');
         const supportsRecurrence = createItemType !== 'TASK';
+        $('#dateCreateLabel').text(createItemType === 'TASK' ? 'Date d’échéance' : 'Planification');
         $('#recurrenceCreateField').toggleClass('d-none', !supportsRecurrence);
         $('#dateCreateField').toggleClass('col-md-6', supportsRecurrence).toggleClass('col-12', !supportsRecurrence);
         $('#checklistCreateFields').toggleClass('d-none', createItemType !== 'CHECKLIST');
