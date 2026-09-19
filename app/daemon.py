@@ -1,12 +1,12 @@
-"""Tâches de fond pour les occurrences et les notifications."""
+"""Background tasks for occurrences and notifications."""
 
 from __future__ import annotations
 
 import asyncio
+import calendar
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 import logging
-import calendar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -27,11 +27,12 @@ logger = logging.getLogger(__name__)
 
 
 def send_notification(notification: Notifications) -> None:
-    """Envoie une notification. L’implémentation sera ajoutée ultérieurement."""
+    """Sends a notification to a user or external system."""
     _ = notification
 
 
 def _parse_datetime(value: str) -> datetime:
+    """Converts an ISO 8601 string into a naive datetime object."""
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone().replace(tzinfo=None)
@@ -39,6 +40,7 @@ def _parse_datetime(value: str) -> datetime:
 
 
 def _add_months(value: date, months: int) -> date:
+    """Adds a whole number of months to a date while preserving the last valid calendar day."""
     month_index = value.year * 12 + value.month - 1 + months
     year, month_index = divmod(month_index, 12)
     month = month_index + 1
@@ -46,6 +48,7 @@ def _add_months(value: date, months: int) -> date:
 
 
 def _occurrence_starts(schedule: Schedules, horizon: datetime) -> Iterable[datetime]:
+    """Generates the start timestamps for an occurrence from a given schedule."""
     first = _parse_datetime(schedule.start_at)
     if schedule.recurrence_rule is None:
         if first <= horizon:
@@ -101,6 +104,7 @@ def _occurrence_starts(schedule: Schedules, horizon: datetime) -> Iterable[datet
 
 
 def _end_at(schedule: Schedules, starts_at: datetime) -> str | None:
+    """Calculates the ISO end date for an occurrence from a schedule."""
     if not schedule.end_at:
         return None
     try:
@@ -111,19 +115,19 @@ def _end_at(schedule: Schedules, starts_at: datetime) -> str | None:
             end_value = time.fromisoformat(schedule.end_at)
             return datetime.combine(starts_at.date(), end_value).isoformat()
         except ValueError:
-            logger.warning("Heure de fin invalide pour la planification %s", schedule.id)
+            logger.warning("Invalid end time for schedule %s", schedule.id)
             return None
 
 
 def create_occurrences(session: Session, now: datetime | None = None) -> int:
-    """Crée les occurrences manquantes jusqu’à deux ans après ``now``."""
+    """Creates missing occurrences up to the horizon calculated from ``now``."""
     now = now or datetime.now()
     if now.tzinfo is not None:
         now = now.astimezone().replace(tzinfo=None)
     horizon = now + timedelta(days=OCCURRENCES_HORIZON_DAYS)
     pending_status_id = session.scalar(select(OccurrenceStatuses.id).where(OccurrenceStatuses.code == "PENDING"))
     if pending_status_id is None:
-        logger.warning("Statut d’occurrence PENDING absent")
+        logger.warning("Occurrence status PENDING is missing")
         return 0
 
     created = 0
@@ -149,10 +153,10 @@ def create_occurrences(session: Session, now: datetime | None = None) -> int:
 
 
 def create_notifications(session: Session) -> int:
-    """Crée les notifications prévues pour les occurrences existantes."""
+    """Creates notifications planned for existing occurrences."""
     pending_status_id = session.scalar(select(NotificationStatuses.id).where(NotificationStatuses.code == "PENDING"))
     if pending_status_id is None:
-        logger.warning("Statut de notification PENDING absent")
+        logger.warning("Notification status PENDING is missing")
         return 0
 
     created = 0
@@ -160,7 +164,7 @@ def create_notifications(session: Session) -> int:
     for occurrence in occurrences:
         if occurrence.schedule is None:
             logger.warning(
-                "Occurrence %s ignorée : planification %s introuvable",
+                "Occurrence %s skipped: schedule %s not found",
                 occurrence.id,
                 occurrence.schedule_id,
             )
@@ -191,7 +195,7 @@ def create_notifications(session: Session) -> int:
 
 
 def send_due_notifications(session: Session, now: datetime | None = None) -> int:
-    """Appelle ``send_notification`` pour chaque notification arrivée à échéance."""
+    """Calls ``send_notification`` for every notification that has reached its due time."""
     now = now or datetime.now()
     if now.tzinfo is not None:
         now = now.astimezone().replace(tzinfo=None)
@@ -208,7 +212,7 @@ def send_due_notifications(session: Session, now: datetime | None = None) -> int
 
 
 def run_daemon_once() -> None:
-    """Exécute un cycle complet dans une session dédiée."""
+    """Runs a complete daemon cycle in its own session."""
     session = SessionLocal()
     try:
         occurrences = create_occurrences(session)
@@ -216,16 +220,16 @@ def run_daemon_once() -> None:
         due = send_due_notifications(session)
         session.commit()
         if occurrences or notifications or due:
-            logger.info("Daemon: %s occurrences, %s notifications créées, %s à envoyer", occurrences, notifications, due)
+            logger.info("Daemon: %s occurrences, %s notifications created, %s pending delivery", occurrences, notifications, due)
     except Exception:
         session.rollback()
-        logger.exception("Erreur pendant le cycle du daemon")
+        logger.exception("Error during daemon cycle")
     finally:
         session.close()
 
 
 async def daemon_loop(stop_event: asyncio.Event) -> None:
-    """Exécute le daemon périodiquement jusqu’à l’arrêt de l’application."""
+    """Runs the daemon periodically until the application stops."""
     while not stop_event.is_set():
         await asyncio.to_thread(run_daemon_once)
         try:

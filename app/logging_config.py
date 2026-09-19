@@ -6,7 +6,7 @@ import os
 
 
 def configure_logging() -> None:
-    """Configure les logs applicatifs et ceux d'Uvicorn."""
+    """Configure les logs applicatifs et ceux d'Uvicorn selon la variable LOG_LEVEL."""
     level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.config.dictConfig(
         {
