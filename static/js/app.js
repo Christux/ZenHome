@@ -38,7 +38,8 @@
  * @typedef {'dashboard'|'notes'|'checklist'|'tasks'|'kanban'|'calendar'} PageName
  */
 
-$(function () {
+/** Initialize the ZenHome interface and register its event handlers. */
+$(function initializeApp() {
     /**
      * Send a JSON request to the ZenHome API.
      *
@@ -73,7 +74,8 @@ $(function () {
         const cards = page.find('.item-card, .kanban-card');
         let matches = 0;
 
-        cards.each(function () {
+        /** Hide cards that do not match the current search query. */
+        cards.each(function filterCardBySearch() {
             const matchesQuery = !query || $(this).text().toLocaleLowerCase('fr-FR').includes(query);
             $(this).toggleClass('search-hidden', !matchesQuery);
             if (matchesQuery) matches += 1;
@@ -129,7 +131,7 @@ $(function () {
 
     /** Apply the selected task status filter to the task list. */
     function applyTaskFilter() {
-        $('#tasksList .item-card').each(function () {
+        $('#tasksList .item-card').each(function filterTaskCard() {
             const matchesFilter = taskFilter === 'ALL' || $(this).data('item-status') === taskFilter;
             $(this).toggleClass('task-filter-hidden', !matchesFilter);
         });
@@ -137,17 +139,24 @@ $(function () {
 
     /** @param {Item[]} tasks Tasks to distribute across the Kanban columns. */
     function renderKanban(tasks) {
-        $('[data-kanban-status]').each(function () {
+        /** Render the tasks belonging to one Kanban column. */
+        $('[data-kanban-status]').each(function renderKanbanColumn() {
             const column = $(this);
             const status = column.data('kanban-status');
-            const columnTasks = tasks.filter(task => task.status_code === status);
+            /** Keep only tasks assigned to the current column. */
+            const columnTasks = tasks.filter(function filterTasksByStatus(task) {
+                return task.status_code === status;
+            });
             column.find('.kanban-card').remove();
             column.find('.kanban-column-count').text(columnTasks.length);
-            column.append(columnTasks.map(task => `
+            /** Build the HTML card for one Kanban task. */
+            column.append(columnTasks.map(function renderKanbanTask(task) {
+                return `
                 <div class="kanban-card" draggable="true" data-item-id="${task.id}" data-item-status="${task.status_code}">
                     <div class="fw-semibold small">${escapeHtml(task.title)}</div>
                     ${task.content ? `<small>${escapeHtml(task.content)}</small>` : ''}
-                </div>`).join(''));
+                </div>`;
+            }).join(''));
         });
     }
 
@@ -162,13 +171,16 @@ $(function () {
 
     /** @param {Item} item Checklist to render. @returns {JQuery} The checklist card. */
     function renderChecklist(item) {
-        const rows = item.checklist_items.map(check => `
+        /** Build the HTML row for one checklist item. */
+        const rows = item.checklist_items.map(function renderChecklistItem(check) {
+            return `
             <div class="check-row ${check.is_checked ? 'checked' : ''}" data-checklist-item-id="${check.id}">
                 <input type="checkbox" class="form-check-input check-box" ${check.is_checked ? 'checked' : ''}>
                 <span class="check-label">${escapeHtml(check.label)}</span>
                 <div class="check-edit gap-1"><button class="btn btn-sm btn-light edit-check"><i class="bi bi-pencil"></i></button>
                 <button class="btn btn-sm btn-light delete-check"><i class="bi bi-trash"></i></button></div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
         const card = $(`<div class="card item-card checklist-card" data-item-id="${item.id}" data-item-type="CHECKLIST"><div class="card-body">
             <div class="d-flex justify-content-between align-items-start"><div><span class="type-badge badge-checklist">CHECKLIST</span>
             <div class="item-title mt-2">${escapeHtml(item.title)}</div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button></div></div>
@@ -200,7 +212,10 @@ $(function () {
             renderKanban(tasks);
             applyTaskFilter();
             $('#page-checklist > .item-card').remove();
-            const details = await Promise.all(checklists.map(item => api(`/api/items/${item.id}/detail`)));
+            /** Load the detailed representation of one checklist. */
+            const details = await Promise.all(checklists.map(function loadChecklistDetails(item) {
+                return api(`/api/items/${item.id}/detail`);
+            }));
             $('#checklistList').empty().append(details.map(renderChecklist));
             applySearch();
         } catch (error) {
@@ -213,7 +228,8 @@ $(function () {
         try {
             recurrenceRules = await api('/api/recurrence-rules');
             $('#newRecurrence').empty().append('<option value="">Aucune</option>');
-            recurrenceRules.forEach(rule => {
+            /** Add one recurrence rule to the selector. */
+            recurrenceRules.forEach(function renderRecurrenceRule(rule) {
                 $('#newRecurrence').append($('<option>', { value: rule.id, text: rule.label }));
             });
         } catch (error) {
@@ -226,23 +242,32 @@ $(function () {
         try {
             const data = await api('/api/dashboard');
             const values = [data.counts.total || 0, data.counts.done || 0, data.counts.todo || 0, data.upcoming_occurrences.length || 0];
-            $('#page-dashboard .stat-number').each((index, node) => $(node).text(values[index]));
+            /** Display one dashboard counter value. */
+            $('#page-dashboard .stat-number').each(function renderDashboardValue(index, node) {
+                $(node).text(values[index]);
+            });
         } catch (error) { console.error(error); }
     }
 
-    $('.nav-link[data-page]').on('click', function (event) {
+    /** Navigate to the page selected in the sidebar. */
+    $('.nav-link[data-page]').on('click', function handlePageNavigation(event) {
         event.preventDefault();
         showPage($(this).data('page'), true);
     });
-    $('#mobileMenu').on('click', () => $('#sidebar').toggleClass('open'));
+    /** Toggle the mobile sidebar visibility. */
+    $('#mobileMenu').on('click', function toggleMobileMenu() {
+        $('#sidebar').toggleClass('open');
+    });
     $('#searchInput').on('input search', applySearch);
-    $('#taskFilters [data-task-status]').on('click', function () {
+    /** Apply the task status selected by the user. */
+    $('#taskFilters [data-task-status]').on('click', function handleTaskFilterChange() {
         taskFilter = $(this).data('task-status');
         $('#taskFilters [data-task-status]').removeClass('active');
         $(this).addClass('active');
         applyTaskFilter();
     });
-    $('[data-calendar-view]').on('click', function () {
+    /** Apply the calendar view selected by the user. */
+    $('[data-calendar-view]').on('click', function handleCalendarViewChange() {
         calendarView = $(this).data('calendar-view');
         $('[data-calendar-view]').removeClass('active');
         $(this).addClass('active');
@@ -255,7 +280,10 @@ $(function () {
         checklistItemOwnerId = card.data('item-id');
         $('#checklistItemLabel').val('');
         bootstrap.Modal.getOrCreateInstance(document.getElementById('checklistItemModal')).show();
-        $('#checklistItemModal').one('shown.bs.modal', () => $('#checklistItemLabel').trigger('focus'));
+        /** Focus the checklist item label after the modal opens. */
+        $('#checklistItemModal').one('shown.bs.modal', function focusChecklistItemLabel() {
+            $('#checklistItemLabel').trigger('focus');
+        });
     }
 
     /**
@@ -264,7 +292,8 @@ $(function () {
      * @returns {Promise<boolean>} Whether the action was confirmed.
      */
     function requestConfirmation({ title, message, confirmLabel = 'Confirmer', variant = 'dark' }) {
-        return new Promise(resolve => {
+        /** Resolve the confirmation promise when the modal is answered. */
+        return new Promise(function createConfirmationPromise(resolve) {
             confirmationResolve = resolve;
             $('#confirmationModalTitle').text(title);
             $('#confirmationModalMessage').text(message);
@@ -316,7 +345,8 @@ $(function () {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal')).show();
     }
 
-    $('#createItem').on('click', async function () {
+    /** Create a new item or save the item currently being edited. */
+    $('#createItem').on('click', async function handleItemSubmit() {
         const title = $('#newTitle').val().trim();
         if (!title) return $('#newTitle').trigger('focus');
         const typeCode = $('#typeChecklist').is(':checked') ? 'CHECKLIST' : $('#typeTask').is(':checked') ? 'TASK' : 'NOTE';
@@ -324,7 +354,10 @@ $(function () {
             if (editingItem) {
                 await api(`/api/items/${editingItem.id}`, { method: 'PATCH', data: { title, content: $('#newContent').val().trim() || null } });
                 const schedules = await api(`/api/items/${editingItem.id}/schedules`);
-                await Promise.all(schedules.map(schedule => api(`/api/schedules/${schedule.id}`, { method: 'DELETE' })));
+                /** Delete one existing schedule before replacing it. */
+                await Promise.all(schedules.map(function deleteSchedule(schedule) {
+                    return api(`/api/schedules/${schedule.id}`, { method: 'DELETE' });
+                }));
                 const date = $('#newDate').val();
                 if (date) {
                     await api(`/api/items/${editingItem.id}/schedules`, {
@@ -354,7 +387,8 @@ $(function () {
         } catch (error) { alert(editingItem ? 'Impossible de modifier cet élément.' : 'Impossible de créer cet élément.'); }
     });
 
-    $(document).on('change', '.task-status-select', async function () {
+    /** Persist a task status selected from a task card. */
+    $(document).on('change', '.task-status-select', async function handleTaskStatusChange() {
         const select = $(this), itemId = select.closest('.item-card').data('item-id');
         try {
             await api(`/api/items/${itemId}/status`, { method: 'PATCH', data: { status_code: select.val() } });
@@ -365,28 +399,33 @@ $(function () {
         catch (error) { alert('Impossible de modifier le statut.'); await loadItems(); }
     });
 
-    $(document).on('dragstart', '.kanban-card', function (event) {
+    /** Start moving a task card between Kanban columns. */
+    $(document).on('dragstart', '.kanban-card', function handleKanbanDragStart(event) {
         $(this).addClass('dragging');
         event.originalEvent.dataTransfer.effectAllowed = 'move';
         event.originalEvent.dataTransfer.setData('text/plain', String($(this).data('item-id')));
     });
 
-    $(document).on('dragend', '.kanban-card', function () {
+    /** Clear Kanban drag state after a drag operation ends. */
+    $(document).on('dragend', '.kanban-card', function handleKanbanDragEnd() {
         $('.kanban-card').removeClass('dragging');
         $('[data-kanban-status]').removeClass('drag-over');
     });
 
-    $(document).on('dragover', '[data-kanban-status]', function (event) {
+    /** Mark a Kanban column as a valid drop target. */
+    $(document).on('dragover', '[data-kanban-status]', function handleKanbanDragOver(event) {
         event.preventDefault();
         event.originalEvent.dataTransfer.dropEffect = 'move';
         $(this).addClass('drag-over');
     });
 
-    $(document).on('dragleave', '[data-kanban-status]', function (event) {
+    /** Remove the drop target state when a card leaves a column. */
+    $(document).on('dragleave', '[data-kanban-status]', function handleKanbanDragLeave(event) {
         if (!this.contains(event.relatedTarget)) $(this).removeClass('drag-over');
     });
 
-    $(document).on('drop', '[data-kanban-status]', async function (event) {
+    /** Persist a task status after dropping it into a Kanban column. */
+    $(document).on('drop', '[data-kanban-status]', async function handleKanbanDrop(event) {
         event.preventDefault();
         const column = $(this);
         const itemId = event.originalEvent.dataTransfer.getData('text/plain');
@@ -406,7 +445,8 @@ $(function () {
         }
     });
 
-    $(document).on('click', '.edit-item', async function () {
+    /** Open the edit modal for the selected item. */
+    $(document).on('click', '.edit-item', async function handleItemEdit() {
         try {
             await openEditModal($(this).closest('.item-card'));
         } catch (error) {
@@ -414,16 +454,20 @@ $(function () {
         }
     });
 
-    $(document).on('click', '.edit-checklist', function () { $(this).closest('.checklist-card').toggleClass('editing'); });
-    $(document).on('change', '.check-box', async function () {
+    /** Toggle checklist editing controls. */
+    $(document).on('click', '.edit-checklist', function toggleChecklistEditing() { $(this).closest('.checklist-card').toggleClass('editing'); });
+    /** Persist a checklist item's checked state. */
+    $(document).on('change', '.check-box', async function handleChecklistItemToggle() {
         const row = $(this).closest('.check-row'), label = row.find('.check-label').text();
         try { await api(`/api/checklist-items/${row.data('checklist-item-id')}`, { method: 'PATCH', data: { label, is_checked: $(this).is(':checked') } }); row.toggleClass('checked', $(this).is(':checked')); updateChecklistProgress(row.closest('.checklist-card')); }
         catch (error) { alert('Impossible de modifier la checklist.'); await loadItems(); }
     });
-    $(document).on('click', '.add-check', async function () {
+    /** Open the modal for adding a checklist item. */
+    $(document).on('click', '.add-check', async function handleAddChecklistItem() {
         openChecklistItemModal($(this).closest('.checklist-card'));
     });
-    $('#addChecklistItem').on('click', async function () {
+    /** Create the checklist item entered in the modal. */
+    $('#addChecklistItem').on('click', async function handleChecklistItemSubmit() {
         const label = $('#checklistItemLabel').val().trim();
         if (!label || !checklistItemOwnerId) return $('#checklistItemLabel').trigger('focus');
         $(this).prop('disabled', true);
@@ -437,7 +481,8 @@ $(function () {
             $(this).prop('disabled', false);
         }
     });
-    $(document).on('click', '.reset-checklist', async function () {
+    /** Reset every checked item in a checklist after confirmation. */
+    $(document).on('click', '.reset-checklist', async function handleChecklistReset() {
         const card = $(this).closest('.checklist-card');
         const confirmed = await requestConfirmation({
             title: 'Réinitialiser la checklist ?',
@@ -455,13 +500,15 @@ $(function () {
             $(this).prop('disabled', false);
         }
     });
-    $(document).on('click', '.edit-check', async function () {
+    /** Edit and persist a checklist item label. */
+    $(document).on('click', '.edit-check', async function handleChecklistItemEdit() {
         const row = $(this).closest('.check-row'), label = prompt('Modifier le libellé :', row.find('.check-label').text());
         if (!label) return;
         try { await api(`/api/checklist-items/${row.data('checklist-item-id')}`, { method: 'PATCH', data: { label, is_checked: row.find('.check-box').is(':checked') } }); await loadItems(); }
         catch (error) { alert('Impossible de modifier cette case.'); }
     });
-    $(document).on('click', '.delete-check', async function () {
+    /** Delete a checklist item after confirmation. */
+    $(document).on('click', '.delete-check', async function handleChecklistItemDelete() {
         const confirmed = await requestConfirmation({
             title: 'Supprimer cette case ?',
             message: 'Cette action est irréversible.',
@@ -473,11 +520,15 @@ $(function () {
         catch (error) { alert('Impossible de supprimer cette case.'); }
     });
 
-    $('#confirmAction').on('click', function () {
+    /** Confirm the action currently displayed in the confirmation modal. */
+    $('#confirmAction').on('click', function handleConfirmation() {
         resolveConfirmation(true);
         bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
     });
-    $('#confirmationModal').on('hidden.bs.modal', () => resolveConfirmation(false));
+    /** Cancel a confirmation when its modal closes without approval. */
+    $('#confirmationModal').on('hidden.bs.modal', function handleConfirmationDismissal() {
+        resolveConfirmation(false);
+    });
 
     const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
     showPage(initialPage); renderCalendarView(); loadRecurrenceRules(); loadItems(); loadDashboard();
