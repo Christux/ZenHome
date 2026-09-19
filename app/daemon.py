@@ -158,6 +158,13 @@ def create_notifications(session: Session) -> int:
     created = 0
     occurrences = session.scalars(select(ScheduleOccurrences)).all()
     for occurrence in occurrences:
+        if occurrence.schedule is None:
+            logger.warning(
+                "Occurrence %s ignorée : planification %s introuvable",
+                occurrence.id,
+                occurrence.schedule_id,
+            )
+            continue
         configs = session.scalars(
             select(NotificationConfigs).where(
                 NotificationConfigs.item_id == occurrence.schedule.item_id,

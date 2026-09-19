@@ -3,7 +3,7 @@
 from collections.abc import Generator
 import logging
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from .globals import DATABASE_PATH, DATABASE_URL
@@ -17,6 +17,14 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     use_insertmanyvalues=False,
 )
+
+
+@event.listens_for(engine, "connect")
+def enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+    """Active les contraintes de clés étrangères pour chaque connexion SQLite."""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
