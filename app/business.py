@@ -5,15 +5,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class ItemCreate(BaseModel):
-    """Payload used to create a new item in the system."""
-
-    title: str = Field(min_length=1, max_length=250)
-    content: str | None = None
-    type_code: Literal["NOTE", "CHECKLIST", "TASK"] = "NOTE"
-    status_code: Literal["TODO", "IN_PROGRESS", "DONE", "CANCELLED"] = "TODO"
-
-
 class ItemStatusUpdate(BaseModel):
     """Payload used to update an item's status."""
 
@@ -33,6 +24,16 @@ class ChecklistInput(BaseModel):
     label: str = Field(min_length=1, max_length=250)
     position: int | None = Field(default=None, ge=0)
     is_checked: bool | None = None
+
+
+class ItemCreate(BaseModel):
+    """Payload used to create a new item and its optional checklist rows."""
+
+    title: str = Field(min_length=1, max_length=250)
+    content: str | None = None
+    type_code: Literal["NOTE", "CHECKLIST", "TASK"] = "NOTE"
+    status_code: Literal["TODO", "IN_PROGRESS", "DONE", "CANCELLED"] = "TODO"
+    checklist_items: list[ChecklistInput] = Field(default_factory=list)
 
 
 class RuleInput(BaseModel):

@@ -327,6 +327,39 @@ $(function initializeApp() {
         $('#newTitle, #newContent').val('');
         $('#newDate').val(todayValue);
         $('#newRecurrence').val('');
+        $('#checklistCreateFields').toggleClass('d-none', createItemType !== 'CHECKLIST');
+        $('#newChecklistItems').empty();
+        if (createItemType === 'CHECKLIST') appendNewChecklistItem();
+    }
+
+    /** Add an empty checklist row to the item creation form. */
+    function appendNewChecklistItem() {
+        $('#newChecklistItems').append(`
+            <div class="checklist-create-row input-group mb-2">
+                <span class="input-group-text">
+                    <input class="form-check-input new-check-checked" type="checkbox" aria-label="Case cochée">
+                </span>
+                <input class="form-control new-check-label" maxlength="250" placeholder="Ex. Acheter du lait">
+                <button type="button" class="btn btn-light remove-new-check" title="Supprimer la case">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>`);
+    }
+
+    /** Read non-empty checklist rows from the item creation form. */
+    function readNewChecklistItems() {
+        return $('#newChecklistItems .checklist-create-row').map(function readChecklistRow() {
+            const row = $(this);
+            const label = row.find('.new-check-label').val().trim();
+            return label ? { label, is_checked: row.find('.new-check-checked').is(':checked') } : null;
+        }).get();
+    }
+
+    /** Create checklist rows using the same API payload as the existing add-row flow. */
+    function addChecklistItems(itemId, checklistItems) {
+        return Promise.all(checklistItems.map(function addChecklistItem(checklistItem) {
+            return api(`/api/items/${itemId}/checklist-items`, { method: 'POST', data: checklistItem });
+        }));
     }
 
     /** @param {JQuery} card Card containing the item to edit. */
@@ -346,6 +379,7 @@ $(function initializeApp() {
         $('#newContent').val(item.content || '');
         $('#newDate').val(schedule?.start_at?.slice(0, 10) || '');
         $('#newRecurrence').val(schedule?.recurrence_rule_id || '');
+        $('#checklistCreateFields').addClass('d-none');
         bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal')).show();
     }
 
@@ -375,7 +409,15 @@ $(function initializeApp() {
                 await loadItems(); await loadDashboard();
                 return;
             }
-            const item = await api('/api/items', { method: 'POST', data: { title, content: $('#newContent').val().trim() || null, type_code: createItemType } });
+            const item = await api('/api/items', {
+                method: 'POST',
+                data: {
+                    title,
+                    content: $('#newContent').val().trim() || null,
+                    type_code: createItemType,
+                    checklist_items: createItemType === 'CHECKLIST' ? readNewChecklistItems() : []
+                }
+            });
             const date = $('#newDate').val();
             if (date) await api(`/api/items/${item.id}/schedules`, {
                 method: 'POST',
@@ -489,13 +531,22 @@ $(function initializeApp() {
     $(document).on('click', '.add-check', async function handleAddChecklistItem() {
         openChecklistItemModal($(this).closest('.checklist-card'));
     });
+    /** Add a checklist row to the item creation form. */
+    $(document).on('click', '.add-new-check', function handleAddNewChecklistItem() {
+        appendNewChecklistItem();
+        $('#newChecklistItems .new-check-label').last().trigger('focus');
+    });
+    /** Remove a checklist row from the item creation form. */
+    $(document).on('click', '.remove-new-check', function handleRemoveNewChecklistItem() {
+        $(this).closest('.checklist-create-row').remove();
+    });
     /** Create the checklist item entered in the modal. */
     $('#addChecklistItem').on('click', async function handleChecklistItemSubmit() {
         const label = $('#checklistItemLabel').val().trim();
         if (!label || !checklistItemOwnerId) return $('#checklistItemLabel').trigger('focus');
         $(this).prop('disabled', true);
         try {
-            await api(`/api/items/${checklistItemOwnerId}/checklist-items`, { method: 'POST', data: { label } });
+            await addChecklistItems(checklistItemOwnerId, [{ label }]);
             bootstrap.Modal.getInstance(document.getElementById('checklistItemModal')).hide();
             await loadItems();
         } catch (error) {

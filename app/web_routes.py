@@ -140,6 +140,15 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_session)) -> dict
     )
     db.add(item)
     db.flush()
+    if payload.checklist_items and payload.type_code != "CHECKLIST":
+        raise HTTPException(status_code=422, detail="Checklist rows require a checklist item.")
+    for position, checklist_item in enumerate(payload.checklist_items):
+        db.add(ChecklistItems(
+            item_id=item.id,
+            label=checklist_item.label.strip(),
+            position=checklist_item.position if checklist_item.position is not None else position,
+            is_checked=bool(checklist_item.is_checked),
+        ))
     return fetch_item(item.id, db)
 
 
