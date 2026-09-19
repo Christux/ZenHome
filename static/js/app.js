@@ -66,6 +66,9 @@ $(function initializeApp() {
     let recurrenceRules = [];
     let checklistItemOwnerId = null;
     let confirmationResolve = null;
+    let createItemType = 'NOTE';
+    const pageItemType = { notes: 'NOTE', checklist: 'CHECKLIST', tasks: 'TASK', kanban: 'TASK' };
+    const itemTypeLabel = { NOTE: 'note', CHECKLIST: 'checklist', TASK: 'tâche' };
 
     /** Filter the visible page cards using the search field. */
     function applySearch() {
@@ -313,13 +316,12 @@ $(function initializeApp() {
     /** Reset and prepare the modal for creating an item. */
     function prepareCreateModal() {
         editingItem = null;
-        $('#itemModalTitle').text('Nouvel élément');
+        const activePage = $('.page:not(.d-none)').attr('id')?.replace('page-', '');
+        createItemType = pageItemType[activePage] || 'NOTE';
+        $('#itemModalTitle').text(`Nouvelle ${itemTypeLabel[createItemType]}`);
         $('#createItem').text('Créer');
         $('#newTitle, #newContent, #newDate').val('');
         $('#newRecurrence').val('');
-        $('#typeNote').prop('checked', true);
-        $('input[name="itemType"]').prop('disabled', false);
-        $('#itemTypeField').removeClass('d-none');
     }
 
     /** @param {JQuery} card Card containing the item to edit. */
@@ -339,9 +341,6 @@ $(function initializeApp() {
         $('#newContent').val(item.content || '');
         $('#newDate').val(schedule?.start_at?.slice(0, 10) || '');
         $('#newRecurrence').val(schedule?.recurrence_rule_id || '');
-        $(`#type${item.type_code === 'CHECKLIST' ? 'Checklist' : item.type_code === 'TASK' ? 'Task' : 'Note'}`).prop('checked', true);
-        $('input[name="itemType"]').prop('disabled', true);
-        $('#itemTypeField').addClass('d-none');
         bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal')).show();
     }
 
@@ -349,7 +348,6 @@ $(function initializeApp() {
     $('#createItem').on('click', async function handleItemSubmit() {
         const title = $('#newTitle').val().trim();
         if (!title) return $('#newTitle').trigger('focus');
-        const typeCode = $('#typeChecklist').is(':checked') ? 'CHECKLIST' : $('#typeTask').is(':checked') ? 'TASK' : 'NOTE';
         try {
             if (editingItem) {
                 await api(`/api/items/${editingItem.id}`, { method: 'PATCH', data: { title, content: $('#newContent').val().trim() || null } });
@@ -372,7 +370,7 @@ $(function initializeApp() {
                 await loadItems(); await loadDashboard();
                 return;
             }
-            const item = await api('/api/items', { method: 'POST', data: { title, content: $('#newContent').val().trim() || null, type_code: typeCode } });
+            const item = await api('/api/items', { method: 'POST', data: { title, content: $('#newContent').val().trim() || null, type_code: createItemType } });
             const date = $('#newDate').val();
             if (date) await api(`/api/items/${item.id}/schedules`, {
                 method: 'POST',
@@ -383,7 +381,7 @@ $(function initializeApp() {
             });
             $('#newTitle, #newContent, #newDate').val('');
             bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
-            await loadItems(); await loadDashboard(); showPage(typeCode === 'TASK' ? 'tasks' : typeCode === 'CHECKLIST' ? 'checklist' : 'notes');
+            await loadItems(); await loadDashboard();
         } catch (error) { alert(editingItem ? 'Impossible de modifier cet élément.' : 'Impossible de créer cet élément.'); }
     });
 
