@@ -1,4 +1,51 @@
+/**
+ * @typedef {Object} ApiOptions
+ * @property {string} [method]
+ * @property {Object} [data]
+ */
+
+/**
+ * @typedef {Object} Item
+ * @property {number} id
+ * @property {string} title
+ * @property {string|null} [content]
+ * @property {string} type_code
+ * @property {string} [status_code]
+ * @property {ChecklistItem[]} [checklist_items]
+ */
+
+/**
+ * @typedef {Object} ChecklistItem
+ * @property {number} id
+ * @property {string} label
+ * @property {boolean} is_checked
+ */
+
+/**
+ * @typedef {Object} Schedule
+ * @property {number} id
+ * @property {string} [start_at]
+ * @property {number|null} [recurrence_rule_id]
+ */
+
+/**
+ * @typedef {Object} RecurrenceRule
+ * @property {number} id
+ * @property {string} label
+ */
+
+/**
+ * @typedef {'dashboard'|'notes'|'checklist'|'tasks'|'kanban'|'calendar'} PageName
+ */
+
 $(function () {
+    /**
+     * Send a JSON request to the ZenHome API.
+     *
+     * @param {string} url API endpoint.
+     * @param {ApiOptions} [options] Request method and payload.
+     * @returns {JQuery.jqXHR<any>} The pending API request.
+     */
     const api = (url, options = {}) => $.ajax({
         url,
         contentType: 'application/json',
@@ -7,6 +54,7 @@ $(function () {
         data: options.data ? JSON.stringify(options.data) : undefined
     });
 
+    /** @param {string|null|undefined} value @returns {string} Escaped HTML text. */
     const escapeHtml = (value = '') => $('<div>').text(value).html();
     const typeClass = { NOTE: 'badge-note', CHECKLIST: 'badge-checklist', TASK: 'badge-task' };
     const statusLabel = { TODO: 'À faire', IN_PROGRESS: 'En cours', DONE: 'Terminée', CANCELLED: 'Annulée' };
@@ -18,6 +66,7 @@ $(function () {
     let checklistItemOwnerId = null;
     let confirmationResolve = null;
 
+    /** Filter the visible page cards using the search field. */
     function applySearch() {
         const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
         const page = $('.page:not(.d-none)');
@@ -36,6 +85,11 @@ $(function () {
         }
     }
 
+    /**
+     * Display a page and optionally add it to the browser history.
+     * @param {PageName} page Page to display.
+     * @param {boolean} [push] Whether to update the browser history.
+     */
     function showPage(page, push = false) {
         $('.nav-link[data-page]').removeClass('active');
         $(`.nav-link[data-page="${page}"]`).addClass('active');
@@ -47,6 +101,7 @@ $(function () {
         applySearch();
     }
 
+    /** @param {Item} item Item to render. @returns {JQuery} The item card. */
     function itemCard(item) {
         const content = item.content ? `<div class="item-content">${escapeHtml(item.content)}</div>` : '';
         const card = $(
@@ -61,6 +116,7 @@ $(function () {
         return card.data('item', item);
     }
 
+    /** @param {Item} item Task to render. @returns {JQuery} The task card. */
     function renderTask(item) {
         const card = itemCard(item);
         const select = $(`<select class="form-select form-select-sm task-status-select" style="width:120px;height:32px;">
@@ -71,6 +127,7 @@ $(function () {
         return card;
     }
 
+    /** Apply the selected task status filter to the task list. */
     function applyTaskFilter() {
         $('#tasksList .item-card').each(function () {
             const matchesFilter = taskFilter === 'ALL' || $(this).data('item-status') === taskFilter;
@@ -78,6 +135,7 @@ $(function () {
         });
     }
 
+    /** @param {Item[]} tasks Tasks to distribute across the Kanban columns. */
     function renderKanban(tasks) {
         $('[data-kanban-status]').each(function () {
             const column = $(this);
@@ -93,6 +151,7 @@ $(function () {
         });
     }
 
+    /** Apply the selected calendar view to the calendar grid. */
     function renderCalendarView() {
         const days = $('#page-calendar .calendar-day');
         days.removeClass('calendar-hidden');
@@ -101,6 +160,7 @@ $(function () {
         $('#page-calendar').attr('data-calendar-view', calendarView);
     }
 
+    /** @param {Item} item Checklist to render. @returns {JQuery} The checklist card. */
     function renderChecklist(item) {
         const rows = item.checklist_items.map(check => `
             <div class="check-row ${check.is_checked ? 'checked' : ''}" data-checklist-item-id="${check.id}">
@@ -119,12 +179,14 @@ $(function () {
         return card;
     }
 
+    /** @param {JQuery} card Checklist card whose progress bar must be updated. */
     function updateChecklistProgress(card) {
         const total = card.find('.check-box').length;
         const checked = card.find('.check-box:checked').length;
         card.find('.progress-bar').css('width', total ? `${Math.round(checked / total * 100)}%` : '0%');
     }
 
+    /** Load notes, tasks, and checklists, then refresh their views. */
     async function loadItems() {
         try {
             const [notes, tasks, checklists] = await Promise.all([
@@ -146,6 +208,7 @@ $(function () {
         }
     }
 
+    /** Load recurrence rules used by the create and edit forms. */
     async function loadRecurrenceRules() {
         try {
             recurrenceRules = await api('/api/recurrence-rules');
@@ -158,6 +221,7 @@ $(function () {
         }
     }
 
+    /** Load dashboard counters from the API. */
     async function loadDashboard() {
         try {
             const data = await api('/api/dashboard');
@@ -186,6 +250,7 @@ $(function () {
     });
     $('.floating-add').on('click', prepareCreateModal);
 
+    /** @param {JQuery} card Checklist card receiving the new item. */
     function openChecklistItemModal(card) {
         checklistItemOwnerId = card.data('item-id');
         $('#checklistItemLabel').val('');
@@ -193,6 +258,11 @@ $(function () {
         $('#checklistItemModal').one('shown.bs.modal', () => $('#checklistItemLabel').trigger('focus'));
     }
 
+    /**
+     * Display the shared confirmation modal and wait for the user's choice.
+     * @param {{title: string, message: string, confirmLabel?: string, variant?: string}} options Modal content.
+     * @returns {Promise<boolean>} Whether the action was confirmed.
+     */
     function requestConfirmation({ title, message, confirmLabel = 'Confirmer', variant = 'dark' }) {
         return new Promise(resolve => {
             confirmationResolve = resolve;
@@ -203,6 +273,7 @@ $(function () {
         });
     }
 
+    /** @param {boolean} value Confirmation result. */
     function resolveConfirmation(value) {
         if (!confirmationResolve) return;
         const resolve = confirmationResolve;
@@ -210,6 +281,7 @@ $(function () {
         resolve(value);
     }
 
+    /** Reset and prepare the modal for creating an item. */
     function prepareCreateModal() {
         editingItem = null;
         $('#itemModalTitle').text('Nouvel élément');
@@ -221,6 +293,7 @@ $(function () {
         $('#itemTypeField').removeClass('d-none');
     }
 
+    /** @param {JQuery} card Card containing the item to edit. */
     async function openEditModal(card) {
         const item = card.data('item') || {
             id: card.data('item-id'),
