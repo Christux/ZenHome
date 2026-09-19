@@ -318,9 +318,12 @@ $(function initializeApp() {
         editingItem = null;
         const activePage = $('.page:not(.d-none)').attr('id')?.replace('page-', '');
         createItemType = pageItemType[activePage] || 'NOTE';
+        const today = new Date();
+        const todayValue = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
         $('#itemModalTitle').text(`Nouvelle ${itemTypeLabel[createItemType]}`);
         $('#createItem').text('Créer');
-        $('#newTitle, #newContent, #newDate').val('');
+        $('#newTitle, #newContent').val('');
+        $('#newDate').val(todayValue);
         $('#newRecurrence').val('');
     }
 
