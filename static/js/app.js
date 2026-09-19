@@ -2,6 +2,7 @@
  * @typedef {Object} ApiOptions
  * @property {string} [method]
  * @property {Object} [data]
+ * @property {string} [dataType]
  */
 
 /**
@@ -50,7 +51,7 @@ $(function initializeApp() {
     const api = (url, options = {}) => $.ajax({
         url,
         contentType: 'application/json',
-        dataType: 'json',
+        dataType: options.dataType ?? (options.method === 'DELETE' ? undefined : 'json'),
         ...options,
         data: options.data ? JSON.stringify(options.data) : undefined
     });
@@ -109,12 +110,13 @@ $(function initializeApp() {
     /** @param {Item} item Item to render. @returns {JQuery} The item card. */
     function itemCard(item) {
         const content = item.content ? `<div class="item-content">${escapeHtml(item.content)}</div>` : '';
+        const deleteButton = item.type_code === 'NOTE' ? '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>' : '';
         const card = $(
             `<div class="card item-card" data-item-id="${item.id}" data-item-type="${item.type_code}" data-item-status="${item.status_code}">
                 <div class="card-body"><div class="d-flex justify-content-between">
                     <div class="flex-grow-1"><span class="type-badge ${typeClass[item.type_code]}">${item.type_code}</span>
                     <div class="item-title mt-2">${escapeHtml(item.title)}</div>${content}</div>
-                    <div class="edit-actions"><button class="btn btn-sm btn-light edit-item" title="Modifier"><i class="bi bi-pencil"></i></button></div>
+                    <div class="edit-actions"><button class="btn btn-sm btn-light edit-item" title="Modifier"><i class="bi bi-pencil"></i></button>${deleteButton}</div>
                 </div></div>
             </div>`
         );
@@ -452,6 +454,26 @@ $(function initializeApp() {
             await openEditModal($(this).closest('.item-card'));
         } catch (error) {
             alert('Impossible de charger la planification.');
+        }
+    });
+    /** Delete a note after confirmation. */
+    $(document).on('click', '.delete-item', async function handleItemDelete() {
+        const card = $(this).closest('.item-card');
+        const confirmed = await requestConfirmation({
+            title: 'Supprimer cette note ?',
+            message: 'Cette action est irréversible.',
+            confirmLabel: 'Supprimer',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        $(this).prop('disabled', true);
+        try {
+            await api(`/api/items/${card.data('item-id')}`, { method: 'DELETE' });
+            await loadItems();
+            await loadDashboard();
+        } catch (error) {
+            alert('Impossible de supprimer cette note.');
+            $(this).prop('disabled', false);
         }
     });
 

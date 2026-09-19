@@ -155,6 +155,26 @@ def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_ses
     return serialize_item(item)
 
 
+@public_router.delete("/api/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(item_id: int, db: Session = Depends(get_session)) -> None:
+    """Deletes an existing item and its related data."""
+    item = db.get(Items, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found.")
+    schedule_ids = select(Schedules.id).where(Schedules.item_id == item_id)
+    occurrence_ids = select(ScheduleOccurrences.id).where(ScheduleOccurrences.schedule_id.in_(schedule_ids))
+    notification_config_ids = select(NotificationConfigs.id).where(NotificationConfigs.item_id == item_id)
+    db.execute(delete(Notifications).where(
+        Notifications.schedule_occurrence_id.in_(occurrence_ids)
+        | Notifications.notification_config_id.in_(notification_config_ids)
+    ))
+    db.execute(delete(ScheduleOccurrences).where(ScheduleOccurrences.schedule_id.in_(schedule_ids)))
+    db.execute(delete(Schedules).where(Schedules.item_id == item_id))
+    db.execute(delete(NotificationConfigs).where(NotificationConfigs.item_id == item_id))
+    db.execute(delete(ChecklistItems).where(ChecklistItems.item_id == item_id))
+    db.execute(delete(Items).where(Items.id == item_id))
+
+
 @public_router.patch("/api/items/{item_id}/status")
 def update_item_status(item_id: int, payload: ItemStatusUpdate, db: Session = Depends(get_session)) -> dict[str, Any]:
     """Updates the status of a business item."""
