@@ -147,7 +147,7 @@
                             <div class="stat-icon">
                                 <i class="bi bi-calendar-day"></i>
                             </div>
-                            <div class="stat-number">7</div>
+                            <div class="stat-number" data-dashboard-count="today">0</div>
                             <div class="stat-label">Éléments aujourd'hui</div>
                         </div>
                     </div>
@@ -157,7 +157,7 @@
                             <div class="stat-icon">
                                 <i class="bi bi-check2-circle"></i>
                             </div>
-                            <div class="stat-number">4</div>
+                            <div class="stat-number" data-dashboard-count="tasks_done">0</div>
                             <div class="stat-label">Tâches terminées</div>
                         </div>
                     </div>
@@ -167,7 +167,7 @@
                             <div class="stat-icon">
                                 <i class="bi bi-list-check"></i>
                             </div>
-                            <div class="stat-number">2</div>
+                            <div class="stat-number" data-dashboard-count="checklists_open">0</div>
                             <div class="stat-label">Checklists ouvertes</div>
                         </div>
                     </div>
@@ -177,7 +177,7 @@
                             <div class="stat-icon">
                                 <i class="bi bi-clock"></i>
                             </div>
-                            <div class="stat-number">3</div>
+                            <div class="stat-number" data-dashboard-count="upcoming">0</div>
                             <div class="stat-label">À venir</div>
                         </div>
                     </div>
@@ -190,104 +190,8 @@
 
                         <div class="section-title">Aujourd'hui</div>
 
-                        <div class="card item-card">
-                            <div class="card-body">
-
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <span class="type-badge badge-task">TÂCHE</span>
-                                        <div class="item-title mt-2">
-                                            Préparer la présentation client
-                                        </div>
-                                    </div>
-
-                                    <span class="task-status status-progress">
-                                        En cours
-                                    </span>
-                                </div>
-
-                                <div class="item-content">
-                                    Finaliser les slides et préparer les exemples
-                                    pour la réunion de demain.
-                                </div>
-
-                                <div class="item-meta">
-                                    <span>
-                                        <i class="bi bi-clock"></i>
-                                        Aujourd'hui, 18:00
-                                    </span>
-                                    <span>
-                                        <i class="bi bi-arrow-repeat"></i>
-                                        Une fois
-                                    </span>
-                                </div>
-
-                            </div>
-                        </div>
-
-                        <div class="card item-card">
-                            <div class="card-body">
-
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <span class="type-badge badge-checklist">
-                                            CHECKLIST
-                                        </span>
-
-                                        <div class="item-title mt-2">
-                                            Courses de la semaine
-                                        </div>
-                                    </div>
-
-                                    <span class="text-muted small">
-                                        4 / 7
-                                    </span>
-                                </div>
-
-                                <div class="progress mt-3" style="height:5px;">
-                                    <div class="progress-bar"
-                                         style="width:57%">
-                                    </div>
-                                </div>
-
-                                <div class="item-meta">
-                                    <span>
-                                        <i class="bi bi-arrow-repeat"></i>
-                                        Chaque lundi
-                                    </span>
-                                </div>
-
-                            </div>
-                        </div>
-
-                        <div class="card item-card">
-                            <div class="card-body">
-
-                                <div>
-                                    <span class="type-badge badge-note">NOTE</span>
-                                    <div class="item-title mt-2">
-                                        Appeler maman 🎂
-                                    </div>
-                                </div>
-
-                                <div class="item-content">
-                                    Son anniversaire est aujourd'hui.
-                                    Penser à l'appeler ce soir.
-                                </div>
-
-                                <div class="item-meta">
-                                    <span>
-                                        <i class="bi bi-calendar"></i>
-                                        Aujourd'hui
-                                    </span>
-
-                                    <span>
-                                        <i class="bi bi-arrow-repeat"></i>
-                                        Chaque année
-                                    </span>
-                                </div>
-
-                            </div>
+                        <div id="dashboardTodayList" class="dashboard-list">
+                            <div class="text-muted">Chargement...</div>
                         </div>
 
                     </div>
@@ -296,25 +200,8 @@
 
                         <div class="section-title">À venir</div>
 
-                        <div class="card p-3 mb-2">
-                            <div class="small text-muted">Demain · 09:30</div>
-                            <div class="fw-semibold mt-1">
-                                Réunion équipe produit
-                            </div>
-                        </div>
-
-                        <div class="card p-3 mb-2">
-                            <div class="small text-muted">18 septembre</div>
-                            <div class="fw-semibold mt-1">
-                                Renouveler assurance
-                            </div>
-                        </div>
-
-                        <div class="card p-3 mb-2">
-                            <div class="small text-muted">20 septembre</div>
-                            <div class="fw-semibold mt-1">
-                                Week-end à Bordeaux
-                            </div>
+                        <div id="dashboardUpcomingList" class="dashboard-list">
+                            <div class="text-muted">Chargement...</div>
                         </div>
 
                     </div>

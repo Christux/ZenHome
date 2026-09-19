@@ -347,12 +347,35 @@ $(function initializeApp() {
     async function loadDashboard() {
         try {
             const data = await api('/api/dashboard');
-            const values = [data.counts.total || 0, data.counts.done || 0, data.counts.todo || 0, data.upcoming_occurrences.length || 0];
-            /** Display one dashboard counter value. */
-            $('#page-dashboard .stat-number').each(function renderDashboardValue(index, node) {
-                $(node).text(values[index]);
-            });
+            const counts = data.counts || {};
+            $('[data-dashboard-count="today"]').text(counts.today || 0);
+            $('[data-dashboard-count="tasks_done"]').text(counts.tasks_done || 0);
+            $('[data-dashboard-count="checklists_open"]').text(counts.checklists_open || 0);
+            $('[data-dashboard-count="upcoming"]').text(data.upcoming_occurrences.length || 0);
+            renderDashboardOccurrences(data.upcoming_occurrences || []);
         } catch (error) { console.error(error); }
+    }
+
+    /** Render the dashboard's real occurrences in the two date sections. */
+    function renderDashboardOccurrences(occurrences) {
+        const today = calendarDateValue(new Date());
+        const typeLabels = { NOTE: 'NOTE', CHECKLIST: 'CHECKLIST', TASK: 'TÂCHE' };
+        const renderOccurrence = occurrence => {
+            const date = new Date(occurrence.starts_at.replace(' ', 'T'));
+            const dateLabel = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+            const timeLabel = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            return `<div class="card p-3 mb-2 dashboard-occurrence">
+                <div class="d-flex justify-content-between gap-2">
+                    <span class="type-badge ${typeClass[occurrence.type_code]}">${typeLabels[occurrence.type_code] || occurrence.type_code}</span>
+                    <span class="small text-muted">${dateLabel} · ${timeLabel}</span>
+                </div>
+                <div class="fw-semibold mt-2">${escapeHtml(occurrence.title)}</div>
+            </div>`;
+        };
+        const todayOccurrences = occurrences.filter(occurrence => occurrence.starts_at.startsWith(today));
+        $('#dashboardTodayList').html(todayOccurrences.length ? todayOccurrences.map(renderOccurrence).join('') : '<div class="text-muted">Aucun élément prévu aujourd’hui.</div>');
+        const upcomingOccurrences = occurrences.filter(occurrence => !occurrence.starts_at.startsWith(today));
+        $('#dashboardUpcomingList').html(upcomingOccurrences.length ? upcomingOccurrences.slice(0, 5).map(renderOccurrence).join('') : '<div class="text-muted">Aucun élément à venir.</div>');
     }
 
     /** Navigate to the page selected in the sidebar. */

@@ -220,14 +220,29 @@ def dashboard(db: Session = Depends(get_session)) -> dict[str, Any]:
     """Returns a summary of counters and upcoming occurrences."""
     counts = db.execute(
         select(
-            func.count(Items.id).label("total"),
-            func.sum(case((ItemStatuses.code == "TODO", 1), else_=0)).label("todo"),
-            func.sum(case((ItemStatuses.code == "IN_PROGRESS", 1), else_=0)).label("in_progress"),
-            func.sum(case((ItemStatuses.code == "DONE", 1), else_=0)).label("done"),
+            func.sum(case((ItemTypes.code == "TASK", 1), else_=0)).label("tasks_total"),
+            func.sum(case(((ItemTypes.code == "TASK") & (ItemStatuses.code == "DONE"), 1), else_=0)).label("tasks_done"),
+            func.sum(case(((ItemTypes.code == "CHECKLIST") & ~ItemStatuses.code.in_(["DONE", "CANCELLED"]), 1), else_=0)).label("checklists_open"),
         )
+        .select_from(Items)
+        .join(Items.user)
         .join(Items.status)
-        .where(Items.is_archived.is_(False))
+        .join(Items.type)
+        .where(Users.email == "demo@zenhome.local", Items.is_archived.is_(False))
     ).mappings().one()
+    today_count = db.scalar(
+        select(func.count(ScheduleOccurrences.id))
+        .join(ScheduleOccurrences.schedule)
+        .join(Schedules.item)
+        .join(Items.user)
+        .join(ScheduleOccurrences.status)
+        .where(
+            Users.email == "demo@zenhome.local",
+            Items.is_archived.is_(False),
+            OccurrenceStatuses.code == "PENDING",
+            func.date(ScheduleOccurrences.starts_at) == func.date("now"),
+        )
+    ) or 0
     upcoming = db.execute(
         select(
             ScheduleOccurrences.id,
@@ -239,13 +254,17 @@ def dashboard(db: Session = Depends(get_session)) -> dict[str, Any]:
         .join(ScheduleOccurrences.schedule)
         .join(Schedules.item)
         .join(Items.type)
+        .join(Items.user)
         .join(ScheduleOccurrences.status)
-        .where(OccurrenceStatuses.code == "PENDING")
+        .where(Users.email == "demo@zenhome.local", Items.is_archived.is_(False), OccurrenceStatuses.code == "PENDING")
         .where(ScheduleOccurrences.starts_at >= func.datetime("now"))
         .order_by(ScheduleOccurrences.starts_at)
         .limit(10)
     ).mappings().all()
-    return {"counts": dict(counts), "upcoming_occurrences": [dict(row) for row in upcoming]}
+    return {
+        "counts": {**dict(counts), "today": today_count},
+        "upcoming_occurrences": [dict(row) for row in upcoming],
+    }
 
 
 @router.get("/dictionaries/{name}")
