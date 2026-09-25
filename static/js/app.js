@@ -155,7 +155,7 @@ $(function initializeApp() {
             <option value="TODO">À faire</option><option value="IN_PROGRESS">En cours</option>
             <option value="DONE">Terminée</option><option value="CANCELLED">Annulée</option></select>`);
         select.val(item.status_code);
-        card.find('.edit-actions').replaceWith(select);
+        card.find('.edit-actions').before(select);
         return card;
     }
 
