@@ -149,6 +149,15 @@ body {
     box-shadow: 0 5px 18px rgba(20,25,40,.07);
 }
 
+.item-openable {
+    cursor: pointer;
+}
+
+.item-openable:focus-visible {
+    outline: 3px solid #4b50b7;
+    outline-offset: 2px;
+}
+
 .item-card .card-body {
     padding: 20px;
 }
@@ -208,6 +217,91 @@ body {
 
 .item-card:hover .edit-actions {
     opacity: 1;
+}
+
+.item-detail-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    overflow-y: auto;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.item-detail-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    min-height: 68px;
+    display: grid;
+    grid-template-columns: 1fr minmax(100px, auto) 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 28px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+}
+
+.item-detail-toolbar > .btn {
+    justify-self: start;
+}
+
+.item-detail-route {
+    display: flex;
+    justify-content: center;
+    gap: 9px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.item-detail-separator {
+    color: var(--border);
+}
+
+.item-detail-toolbar > .d-flex {
+    justify-self: end;
+    min-width: 0;
+}
+
+.item-detail-permalink {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.item-detail-content {
+    width: min(900px, 100%);
+    margin: 0 auto;
+    padding: 54px 28px 80px;
+}
+
+.item-detail-card {
+    margin-bottom: 28px;
+}
+
+.item-detail-screen .edit-actions {
+    opacity: 1;
+}
+
+.item-detail-info {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.item-detail-info h2 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .search-empty {
@@ -630,5 +724,34 @@ body {
     .topbar .input-group {
         flex: 1;
         max-width: none !important;
+    }
+
+    .item-detail-toolbar {
+        grid-template-columns: auto 1fr auto;
+        gap: 8px;
+        padding: 8px 12px;
+    }
+
+    .item-detail-toolbar > .btn {
+        font-size: 13px;
+        padding: 7px 9px;
+    }
+
+    .item-detail-toolbar > .d-flex {
+        gap: 6px !important;
+    }
+
+    .item-detail-permalink {
+        max-width: 30vw;
+        font-size: 10px;
+    }
+
+    .item-detail-content {
+        padding: 30px 14px 60px;
+    }
+
+    .item-detail-info {
+        grid-template-columns: 1fr;
+        gap: 18px;
     }
 }

@@ -93,6 +93,14 @@ def home() -> FileResponse:
     return FileResponse(PROJECT_DIR / "index.html")
 
 
+@public_router.get("/item/{item_id}", include_in_schema=False)
+def item_page(item_id: int) -> FileResponse:
+    """Returns the application shell for a permanent item URL."""
+    if item_id < 1:
+        raise HTTPException(status_code=404, detail="Item not found.")
+    return FileResponse(PROJECT_DIR / "index.html")
+
+
 @public_router.get("/{page}", include_in_schema=False)
 def web_page(page: str) -> FileResponse:
     """Returns the requested SPA page based on the navigation URL."""
@@ -289,6 +297,7 @@ def item_detail(item_id: int, db: Session = Depends(get_session)) -> dict[str, A
     """Fetches the complete detail for an item, including its checklist and schedules."""
     item = require(db, Items, item_id, "Item")
     result = as_dict(item)
+    result.update(serialize_item(item))
     result["checklist_items"] = [as_dict(row) for row in sorted(item.checklist_items, key=lambda row: (row.position, row.id))]
     result["schedules"] = [as_dict(row) for row in sorted(item.schedules, key=lambda row: row.start_at)]
     result["notification_configs"] = [as_dict(row) for row in item.notification_configs]
@@ -407,6 +416,7 @@ def occurrences(start_at: str | None = None, end_at: str | None = None, db: Sess
     """Returns occurrences filtered by period."""
     query = select(
         ScheduleOccurrences,
+        Items.id.label("item_id"),
         Items.title.label("item_title"),
         ItemTypes.code.label("type_code"),
         OccurrenceStatuses.code.label("status_code"),
@@ -418,6 +428,7 @@ def occurrences(start_at: str | None = None, end_at: str | None = None, db: Sess
     rows = db.execute(query.order_by(ScheduleOccurrences.starts_at)).all()
     return [{
         **as_dict(row[0]),
+        "item_id": row.item_id,
         "item_title": row.item_title,
         "type_code": row.type_code,
         "status_code": row.status_code,

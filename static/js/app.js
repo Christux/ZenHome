@@ -69,6 +69,7 @@ $(function initializeApp() {
     let recurrenceRules = [];
     let checklistItemOwnerId = null;
     let confirmationResolve = null;
+    let currentItemId = null;
     let createItemType = 'NOTE';
     const pageItemType = { notes: 'NOTE', checklist: 'CHECKLIST', tasks: 'TASK', kanban: 'TASK' };
     const itemTypeLabel = { NOTE: 'note', CHECKLIST: 'checklist', TASK: 'tâche' };
@@ -126,6 +127,8 @@ $(function initializeApp() {
         $(`.nav-link[data-page="${page}"]`).addClass('active');
         $('.page').addClass('d-none');
         $(`#page-${page}`).removeClass('d-none');
+        $('#itemDetailScreen').addClass('d-none').attr('aria-busy', 'false');
+        currentItemId = null;
         $('#sidebar').removeClass('open');
         document.title = `ZenHome — ${$('.nav-link.active').text().trim() || 'Accueil'}`;
         if (push) history.pushState({ page }, '', pagePath[page]);
@@ -135,9 +138,9 @@ $(function initializeApp() {
     /** @param {Item} item Item to render. @returns {JQuery} The item card. */
     function itemCard(item) {
         const content = item.content ? `<div class="item-content">${escapeHtml(item.content)}</div>` : '';
-        const deleteButton = item.type_code === 'NOTE' ? '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>' : '';
+        const deleteButton = '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>';
         const card = $(
-            `<div class="card item-card" data-item-id="${item.id}" data-item-type="${item.type_code}" data-item-status="${item.status_code}">
+            `<div class="card item-card item-openable" data-item-id="${item.id}" data-item-type="${item.type_code}" data-item-status="${item.status_code}" role="group" aria-label="Ouvrir l’élément : ${escapeHtml(item.title)}" tabindex="0">
                 <div class="card-body"><div class="d-flex justify-content-between">
                     <div class="flex-grow-1"><span class="type-badge ${typeClass[item.type_code]}">${item.type_code}</span>
                     <div class="item-title mt-2">${escapeHtml(item.title)}</div>${content}</div>
@@ -182,7 +185,7 @@ $(function initializeApp() {
             /** Build the HTML card for one Kanban task. */
             column.append(columnTasks.map(function renderKanbanTask(task) {
                 return `
-                <div class="kanban-card" draggable="true" data-item-id="${task.id}" data-item-status="${task.status_code}">
+                <div class="kanban-card item-openable" draggable="true" data-item-id="${task.id}" data-item-type="TASK" data-item-status="${task.status_code}" role="link" tabindex="0">
                     <div class="fw-semibold small">${escapeHtml(task.title)}</div>
                     ${task.content ? `<small>${escapeHtml(task.content)}</small>` : ''}
                 </div>`;
@@ -244,7 +247,7 @@ $(function initializeApp() {
         const events = occurrences.filter(occurrence => occurrence.starts_at.startsWith(dayValue));
         const today = dayValue === calendarDateValue(new Date());
         const eventHtml = events.map(occurrence => `
-            <div class="calendar-event ${calendarTypeClass[occurrence.type_code] || ''}" title="${escapeHtml(occurrence.item_title)}" data-occurrence-id="${occurrence.id}">
+            <div class="calendar-event ${calendarTypeClass[occurrence.type_code] || ''} item-openable" title="${escapeHtml(occurrence.item_title)}" data-occurrence-id="${occurrence.id}" data-item-id="${occurrence.item_id}" role="link" tabindex="0">
                 ${escapeHtml(occurrence.item_title)}
             </div>`).join('');
         return `<div class="calendar-day${muted ? ' muted' : ''}${today ? ' today' : ''}" data-calendar-date="${dayValue}">
@@ -287,14 +290,64 @@ $(function initializeApp() {
                 <button class="btn btn-sm btn-light delete-check"><i class="bi bi-trash"></i></button></div>
             </div>`;
         }).join('');
-        const card = $(`<div class="card item-card checklist-card" data-item-id="${item.id}" data-item-type="CHECKLIST"><div class="card-body">
+        const card = $(`<div class="card item-card checklist-card item-openable" data-item-id="${item.id}" data-item-type="CHECKLIST" data-item-status="${item.status_code || ''}" role="group" aria-label="Ouvrir l’élément : ${escapeHtml(item.title)}" tabindex="0"><div class="card-body">
             <div class="d-flex justify-content-between align-items-start"><div><span class="type-badge badge-checklist">CHECKLIST</span>
-            <div class="item-title mt-2">${escapeHtml(item.title)}</div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button></div></div>
+            <div class="item-title mt-2">${escapeHtml(item.title)}</div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button><button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button></div></div>
             <div class="check-items mt-3">${rows}</div><div class="check-edit mt-3 gap-2"><button class="btn btn-sm btn-outline-secondary add-check"><i class="bi bi-plus"></i> Ajouter une case</button><button class="btn btn-sm btn-outline-secondary reset-checklist"><i class="bi bi-arrow-counterclockwise"></i> Réinitialiser</button></div>
             <div class="progress mt-3" style="height:5px;"><div class="progress-bar"></div></div></div></div>`);
-        card.data('item', { id: item.id, title: item.title, content: item.content, type_code: 'CHECKLIST' });
+        card.data('item', item);
         updateChecklistProgress(card);
         return card;
+    }
+
+    /** Render the permanent full-screen item route without changing history. */
+    async function renderItemDetail(itemId) {
+        $('#itemDetailScreen').attr('aria-busy', 'true');
+        $('#itemDetailContent').html('<div class="text-muted">Chargement de l’élément...</div>');
+        try {
+            const item = await api(`/api/items/${itemId}/detail`);
+            if (currentItemId !== itemId) return;
+            const card = item.type_code === 'CHECKLIST' ? renderChecklist(item)
+                : item.type_code === 'TASK' ? renderTask(item)
+                    : itemCard(item);
+            card.addClass('item-detail-card');
+            const formatDateTime = value => {
+                const date = new Date(value.replace(' ', 'T'));
+                return Number.isNaN(date.getTime()) ? value : date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+            };
+            const schedules = item.schedules?.length
+                ? item.schedules.map(schedule => `<div>${escapeHtml(formatDateTime(schedule.start_at))}${schedule.end_at ? ` – ${escapeHtml(formatDateTime(schedule.end_at))}` : ''}</div>`).join('')
+                : '<div class="text-muted">Aucune échéance planifiée</div>';
+            const notifications = item.notification_configs?.length
+                ? item.notification_configs.map(config => `<div>${escapeHtml(config.label || `Rappel ${config.offset_minutes} min avant`)}${config.is_enabled ? '' : ' (désactivé)'}</div>`).join('')
+                : '<div class="text-muted">Aucun rappel configuré</div>';
+            const createdAt = item.created_at ? new Date(item.created_at).toLocaleString('fr-FR') : '—';
+            const updatedAt = item.updated_at ? new Date(item.updated_at).toLocaleString('fr-FR') : '—';
+            $('#itemDetailType').text(item.type_label || item.type_code);
+            $('#itemDetailStatus').text(item.status_label || statusLabel[item.status_code] || '');
+            $('#itemDetailPermalink').attr('href', `/item/${item.id}`).text(`${location.origin}/item/${item.id}`);
+            document.title = `ZenHome — ${item.title}`;
+            $('#itemDetailContent').empty().append(card).append(`
+                <section class="item-detail-info" aria-label="Informations complémentaires">
+                    <div><h2>Planification</h2>${schedules}</div>
+                    <div><h2>Rappels</h2>${notifications}</div>
+                    <div><h2>Historique</h2><div>Créé le ${escapeHtml(createdAt)}</div><div>Modifié le ${escapeHtml(updatedAt)}</div></div>
+                </section>`);
+            $('#itemDetailScreen').attr('aria-busy', 'false');
+        } catch (error) {
+            if (currentItemId !== itemId) return;
+            $('#itemDetailContent').html('<div class="alert alert-warning">Cet élément est introuvable ou ne peut pas être chargé.</div>');
+            $('#itemDetailScreen').attr('aria-busy', 'false');
+        }
+    }
+
+    /** Open an item and optionally add its permanent URL to browser history. */
+    function openItemView(itemId, push = false) {
+        const fromPage = $('.page:not(.d-none)').attr('id')?.replace('page-', '') || 'dashboard';
+        currentItemId = Number(itemId);
+        if (push) history.pushState({ itemId: currentItemId, fromPage }, '', `/item/${currentItemId}`);
+        $('#itemDetailScreen').removeClass('d-none');
+        renderItemDetail(currentItemId);
     }
 
     /** @param {JQuery} card Checklist card whose progress bar must be updated. */
@@ -324,6 +377,7 @@ $(function initializeApp() {
             }));
             $('#checklistList').empty().append(details.map(renderChecklist));
             applySearch();
+            if (currentItemId !== null) await renderItemDetail(currentItemId);
         } catch (error) {
             console.error('Chargement ZenHome impossible.', error);
         }
@@ -364,7 +418,7 @@ $(function initializeApp() {
             const date = new Date(occurrence.starts_at.replace(' ', 'T'));
             const dateLabel = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
             const timeLabel = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-            return `<div class="card p-3 mb-2 dashboard-occurrence">
+            return `<div class="card p-3 mb-2 dashboard-occurrence item-openable" data-item-id="${occurrence.item_id}" role="link" tabindex="0">
                 <div class="d-flex justify-content-between gap-2">
                     <span class="type-badge ${typeClass[occurrence.type_code]}">${typeLabels[occurrence.type_code] || occurrence.type_code}</span>
                     <span class="small text-muted">${dateLabel} · ${timeLabel}</span>
@@ -384,6 +438,46 @@ $(function initializeApp() {
         event.preventDefault();
         const page = $(this).data('page');
         showPage(page, true);
+        if (page === 'calendar') renderCalendarView();
+    });
+    $(document).on('click', '.page .item-card, .page .kanban-card, .page .dashboard-occurrence, .page .calendar-event', function openClickedItem(event) {
+        if ($(event.target).closest('button, a, input, select, textarea, [data-bs-toggle]').length) return;
+        const itemId = Number($(this).data('item-id'));
+        if (Number.isInteger(itemId) && itemId > 0) openItemView(itemId, true);
+    });
+    $(document).on('keydown', '.page .item-openable', function openFocusedItem(event) {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        if ($(event.target).closest('button, a, input, select, textarea').length) return;
+        event.preventDefault();
+        const itemId = Number($(this).data('item-id'));
+        if (Number.isInteger(itemId) && itemId > 0) openItemView(itemId, true);
+    });
+    $('#itemDetailBack').on('click', function returnFromItemDetail() {
+        if (history.state?.itemId && location.pathname === `/item/${history.state.itemId}`) {
+            history.back();
+            return;
+        }
+        showPage(history.state?.fromPage || 'dashboard', true);
+    });
+    $('#copyItemLink').on('click', async function copyPermanentItemLink() {
+        try {
+            const permalink = new URL($('#itemDetailPermalink').attr('href'), location.origin).href;
+            await navigator.clipboard.writeText(permalink);
+            $(this).attr('aria-label', 'Lien copié').attr('title', 'Lien copié');
+            setTimeout(() => $(this).attr('aria-label', 'Copier le lien').attr('title', 'Copier le lien'), 1500);
+        } catch (error) {
+            alert('Impossible de copier le lien depuis ce navigateur.');
+        }
+    });
+    $(window).on('popstate', function restoreRouteFromHistory() {
+        const itemMatch = location.pathname.match(/^\/item\/(\d+)$/);
+        if (itemMatch) {
+            showPage(history.state?.fromPage || 'dashboard');
+            openItemView(Number(itemMatch[1]));
+            return;
+        }
+        const page = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
+        showPage(page);
         if (page === 'calendar') renderCalendarView();
     });
     /** Toggle the mobile sidebar visibility. */
@@ -593,6 +687,7 @@ $(function initializeApp() {
         try {
             await api(`/api/items/${itemId}/status`, { method: 'PATCH', data: { status_code: select.val() } });
             select.closest('.item-card').data('item-status', select.val()).attr('data-item-status', select.val());
+            if (currentItemId === Number(itemId)) $('#itemDetailStatus').text(statusLabel[select.val()] || select.val());
             applyTaskFilter();
             await loadDashboard();
         }
@@ -657,7 +752,7 @@ $(function initializeApp() {
     $(document).on('click', '.delete-item', async function handleItemDelete() {
         const card = $(this).closest('.item-card');
         const confirmed = await requestConfirmation({
-            title: 'Supprimer cette note ?',
+            title: 'Supprimer cet élément ?',
             message: 'Cette action est irréversible.',
             confirmLabel: 'Supprimer',
             variant: 'danger'
@@ -665,11 +760,16 @@ $(function initializeApp() {
         if (!confirmed) return;
         $(this).prop('disabled', true);
         try {
-            await api(`/api/items/${card.data('item-id')}`, { method: 'DELETE' });
+            const itemId = Number(card.data('item-id'));
+            await api(`/api/items/${itemId}`, { method: 'DELETE' });
+            if (currentItemId === itemId) {
+                $('#itemDetailBack').trigger('click');
+                currentItemId = null;
+            }
             await loadItems();
             await loadDashboard();
         } catch (error) {
-            alert('Impossible de supprimer cette note.');
+            alert('Impossible de supprimer cet élément.');
             $(this).prop('disabled', false);
         }
     });
@@ -760,6 +860,8 @@ $(function initializeApp() {
     });
 
     startDevelopmentReload();
+    const initialItemMatch = location.pathname.match(/^\/item\/(\d+)$/);
     const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
     showPage(initialPage); renderCalendarView(); loadRecurrenceRules(); loadItems(); loadDashboard();
+    if (initialItemMatch) openItemView(Number(initialItemMatch[1]));
 });
