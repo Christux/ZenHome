@@ -41,6 +41,23 @@
 
 /** Initialize the ZenHome interface and register its event handlers. */
 $(function initializeApp() {
+    const itemUpdateChannel = 'BroadcastChannel' in window ? new BroadcastChannel('zenhome-item-updates') : null;
+    let sharedRefreshTimer = null;
+
+    /** Notify other open ZenHome tabs after a successful write. */
+    function notifyOtherTabs() {
+        const update = { updatedAt: Date.now() };
+        if (itemUpdateChannel) {
+            itemUpdateChannel.postMessage(update);
+            return;
+        }
+        try {
+            localStorage.setItem('zenhome-item-updated', JSON.stringify(update));
+        } catch (error) {
+            // Cross-tab refresh is unavailable when browser storage is disabled.
+        }
+    }
+
     /**
      * Send a JSON request to the ZenHome API.
      *
@@ -48,13 +65,23 @@ $(function initializeApp() {
      * @param {ApiOptions} [options] Request method and payload.
      * @returns {JQuery.jqXHR<any>} The pending API request.
      */
-    const api = (url, options = {}) => $.ajax({
-        url,
-        contentType: 'application/json',
-        dataType: options.dataType ?? (options.method === 'DELETE' ? undefined : 'json'),
-        ...options,
-        data: options.data ? JSON.stringify(options.data) : undefined
-    });
+    const api = (url, options = {}) => {
+        const method = (options.method || 'GET').toUpperCase();
+        const request = $.ajax({
+            url,
+            contentType: 'application/json',
+            dataType: options.dataType ?? (method === 'DELETE' ? undefined : 'json'),
+            ...options,
+            data: options.data ? JSON.stringify(options.data) : undefined
+        });
+        if (method !== 'GET' && method !== 'HEAD') {
+            request.done(function syncUpdatedItem() {
+                notifyOtherTabs();
+                scheduleSharedRefresh();
+            });
+        }
+        return request;
+    };
 
     /** @param {string|null|undefined} value @returns {string} Escaped HTML text. */
     const escapeHtml = (value = '') => $('<div>').text(value).html();
@@ -409,6 +436,21 @@ $(function initializeApp() {
             renderDashboardOccurrences(data.upcoming_occurrences || []);
         } catch (error) { console.error(error); }
     }
+
+    /** Refresh every data-backed view after another tab changes an item. */
+    function scheduleSharedRefresh() {
+        clearTimeout(sharedRefreshTimer);
+        sharedRefreshTimer = setTimeout(function refreshSharedViews() {
+            loadItems();
+            loadDashboard();
+            renderCalendarView();
+        }, 250);
+    }
+
+    if (itemUpdateChannel) itemUpdateChannel.addEventListener('message', scheduleSharedRefresh);
+    $(window).on('storage', function handleSharedUpdate(event) {
+        if (event.originalEvent.key === 'zenhome-item-updated') scheduleSharedRefresh();
+    });
 
     /** Render the dashboard's real occurrences in the two date sections. */
     function renderDashboardOccurrences(occurrences) {
