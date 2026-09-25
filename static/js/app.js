@@ -100,7 +100,7 @@ $(function initializeApp() {
     function applySearch() {
         const query = $('#searchInput').val().trim().toLocaleLowerCase('fr-FR');
         const page = $('.page:not(.d-none)');
-        const cards = page.find('.item-card, .kanban-card');
+        const cards = page.find('.item-card, .kanban-card, .dashboard-occurrence');
         let matches = 0;
 
         /** Hide cards that do not match the current search query. */
@@ -376,6 +376,7 @@ $(function initializeApp() {
         $('#dashboardTodayList').html(todayOccurrences.length ? todayOccurrences.map(renderOccurrence).join('') : '<div class="text-muted">Aucun élément prévu aujourd’hui.</div>');
         const upcomingOccurrences = occurrences.filter(occurrence => !occurrence.starts_at.startsWith(today));
         $('#dashboardUpcomingList').html(upcomingOccurrences.length ? upcomingOccurrences.slice(0, 5).map(renderOccurrence).join('') : '<div class="text-muted">Aucun élément à venir.</div>');
+        applySearch();
     }
 
     /** Navigate to the page selected in the sidebar. */
