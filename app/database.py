@@ -101,7 +101,7 @@ def migrate_users_table() -> None:
             connection.commit()
 
 
-def initialize_database() -> None:
+def initialize_database(create_demo_user: bool = True) -> None:
     """Creates the schema and demo user if needed."""
     DATABASE_PATH.parent.mkdir(exist_ok=True)
     logger.info("Initializing SQLite database: %s", DATABASE_PATH)
@@ -122,7 +122,7 @@ def initialize_database() -> None:
                 if code not in existing_codes:
                     session.add(model(code=code, label=label, sort_order=sort_order))
 
-        if session.scalar(select(Users.id).limit(1)) is None:
+        if create_demo_user and session.scalar(select(Users.id).limit(1)) is None:
             token = secrets.token_urlsafe(32)
             session.add(Users(token=token, display_name="Jean Dupont"))
             logger.warning("Initial login token: %s", token)
