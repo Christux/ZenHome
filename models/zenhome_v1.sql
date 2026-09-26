@@ -50,7 +50,7 @@ CREATE TABLE notification_statuses (
 
 CREATE TABLE users (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    email       TEXT NOT NULL UNIQUE,
+    token       TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
     is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

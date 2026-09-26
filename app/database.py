@@ -2,9 +2,10 @@
 
 from collections.abc import Generator
 import logging
+import secrets
 from typing import Any
 
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, inspect, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from .globals import DATABASE_PATH, DATABASE_URL, ZENHOME_ENV
@@ -26,6 +27,7 @@ engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
     echo=ZENHOME_ENV in {"development", "dev"},
+    hide_parameters=True,
     use_insertmanyvalues=False,
 )
 
@@ -53,10 +55,57 @@ def get_session() -> Generator[Session, None, None]:
         session.close()
 
 
+def migrate_users_table() -> None:
+    """Replaces the legacy email column with permanent per-user login tokens."""
+    inspector = inspect(engine)
+    if not inspector.has_table("users") or "email" not in {
+        column["name"] for column in inspector.get_columns("users")
+    }:
+        return
+
+    with engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.commit()
+        transaction = connection.begin()
+        try:
+            connection.exec_driver_sql(
+                """CREATE TABLE users_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    token TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )"""
+            )
+            users = connection.exec_driver_sql(
+                "SELECT id, display_name, is_active, created_at, updated_at FROM users"
+            ).mappings().all()
+            for user in users:
+                token = secrets.token_urlsafe(32)
+                connection.exec_driver_sql(
+                    """INSERT INTO users_new
+                       (id, token, display_name, is_active, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (user["id"], token, user["display_name"], user["is_active"], user["created_at"], user["updated_at"]),
+                )
+                logger.warning("Login token for %s: %s", user["display_name"], token)
+            connection.exec_driver_sql("DROP TABLE users")
+            connection.exec_driver_sql("ALTER TABLE users_new RENAME TO users")
+            transaction.commit()
+        except Exception:
+            transaction.rollback()
+            raise
+        finally:
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
+
+
 def initialize_database() -> None:
     """Creates the schema and demo user if needed."""
     DATABASE_PATH.parent.mkdir(exist_ok=True)
     logger.info("Initializing SQLite database: %s", DATABASE_PATH)
+    migrate_users_table()
     Base.metadata.create_all(engine)
     session = SessionLocal()
     try:
@@ -73,9 +122,10 @@ def initialize_database() -> None:
                 if code not in existing_codes:
                     session.add(model(code=code, label=label, sort_order=sort_order))
 
-        if session.scalar(select(Users.id).where(Users.email == "demo@zenhome.local")) is None:
-            session.add(Users(email="demo@zenhome.local", display_name="Jean Dupont"))
-            logger.info("Demo user created")
+        if session.scalar(select(Users.id).limit(1)) is None:
+            token = secrets.token_urlsafe(32)
+            session.add(Users(token=token, display_name="Jean Dupont"))
+            logger.warning("Initial login token: %s", token)
         if session.scalar(select(RecurrenceRules.id).limit(1)) is None:
             recurrence_types = {
                 row.code: row for row in session.scalars(select(RecurrenceTypes)).all()

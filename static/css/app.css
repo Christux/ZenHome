@@ -567,6 +567,28 @@ body {
     display: none;
 }
 
+.auth-modal-dialog {
+    max-width: 430px;
+}
+
+.auth-modal-dialog .modal-content {
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.auth-mark {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 24px;
+    border-radius: 8px;
+    background: #e4f7ed;
+    color: #24764d;
+    font-size: 21px;
+}
+
 :root[data-theme="dark"] .btn-light,
 :root[data-theme="dark"] .bg-light,
 :root[data-theme="dark"] .text-bg-light {

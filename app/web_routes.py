@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
+from .auth import get_current_user
 from .business import (
     ChecklistInput,
     ItemCreate,
@@ -37,7 +38,7 @@ from .models import (
     Users,
 )
 
-router = APIRouter(prefix="/api", tags=["interface web"])
+router = APIRouter(prefix="/api", tags=["interface web"], dependencies=[Depends(get_current_user)])
 public_router = APIRouter(tags=["interface web"])
 
 
@@ -52,6 +53,14 @@ def require(session: Session, model: type, entity_id: int, label: str) -> object
     if instance is None:
         raise HTTPException(404, f"{label} not found.")
     return instance
+
+
+def require_owned_item(session: Session, user: Users, item_id: int, label: str = "Item") -> Items:
+    """Fetches an item only when it belongs to the authenticated user."""
+    item = session.scalar(select(Items).where(Items.id == item_id, Items.user_id == user.id))
+    if item is None:
+        raise HTTPException(404, f"{label} not found.")
+    return item
 
 
 def dictionary_id(session: Session, model: type, code: str) -> int:
@@ -115,6 +124,12 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@router.get("/auth/me")
+def authenticated_user(user: Users = Depends(get_current_user)) -> dict[str, Any]:
+    """Returns the authenticated user's public profile."""
+    return {"id": user.id, "display_name": user.display_name}
+
+
 if ZENHOME_ENV == "development":
     @public_router.get("/api/dev/version")
     def development_version() -> dict[str, str]:
@@ -132,14 +147,15 @@ if ZENHOME_ENV == "development":
         return {"signature": signature}
 
 
-@public_router.get("/api/items")
+@router.get("/items")
 def list_items(
     item_type: Literal["NOTE", "CHECKLIST", "TASK"] | None = Query(default=None),
     include_archived: bool = Query(default=False),
+    user: Users = Depends(get_current_user),
     db: Session = Depends(get_session),
 ) -> list[dict[str, Any]]:
-    """Lists the items visible to the demo user."""
-    query = select(Items).join(Items.user).join(Items.type).where(Users.email == "demo@zenhome.local")
+    """Lists the items visible to the authenticated user."""
+    query = select(Items).join(Items.type).where(Items.user_id == user.id)
     if item_type:
         query = query.where(ItemTypes.code == item_type)
     if not include_archived:
@@ -148,13 +164,12 @@ def list_items(
     return [serialize_item(item) for item in items]
 
 
-@public_router.post("/api/items", status_code=status.HTTP_201_CREATED)
-def create_item(payload: ItemCreate, db: Session = Depends(get_session)) -> dict[str, Any]:
+@router.post("/items", status_code=status.HTTP_201_CREATED)
+def create_item(payload: ItemCreate, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Creates a new business item from the validated payload."""
-    user = db.scalar(select(Users).where(Users.email == "demo@zenhome.local"))
     item_type = db.scalar(select(ItemTypes).where(ItemTypes.code == payload.type_code, ItemTypes.is_active.is_(True)))
     item_status = db.scalar(select(ItemStatuses).where(ItemStatuses.code == payload.status_code, ItemStatuses.is_active.is_(True)))
-    if user is None or item_type is None or item_status is None:
+    if item_type is None or item_status is None:
         raise HTTPException(status_code=500, detail="Dictionaries not initialized.")
     item = Items(
         user_id=user.id,
@@ -177,24 +192,20 @@ def create_item(payload: ItemCreate, db: Session = Depends(get_session)) -> dict
     return fetch_item(item.id, db)
 
 
-@public_router.patch("/api/items/{item_id}")
-def update_item(item_id: int, payload: ItemUpdate, db: Session = Depends(get_session)) -> dict[str, Any]:
+@router.patch("/items/{item_id}")
+def update_item(item_id: int, payload: ItemUpdate, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Updates the editable fields of an existing item."""
-    item = db.get(Items, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found.")
+    item = require_owned_item(db, user, item_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
     item.updated_at = datetime.now().isoformat(timespec="seconds")
     return serialize_item(item)
 
 
-@public_router.delete("/api/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_item(item_id: int, db: Session = Depends(get_session)) -> None:
+@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(item_id: int, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> None:
     """Deletes an existing item and its related data."""
-    item = db.get(Items, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found.")
+    require_owned_item(db, user, item_id)
     schedule_ids = select(Schedules.id).where(Schedules.item_id == item_id)
     occurrence_ids = select(ScheduleOccurrences.id).where(ScheduleOccurrences.schedule_id.in_(schedule_ids))
     notification_config_ids = select(NotificationConfigs.id).where(NotificationConfigs.item_id == item_id)
@@ -209,10 +220,10 @@ def delete_item(item_id: int, db: Session = Depends(get_session)) -> None:
     db.execute(delete(Items).where(Items.id == item_id))
 
 
-@public_router.patch("/api/items/{item_id}/status")
-def update_item_status(item_id: int, payload: ItemStatusUpdate, db: Session = Depends(get_session)) -> dict[str, Any]:
+@router.patch("/items/{item_id}/status")
+def update_item_status(item_id: int, payload: ItemStatusUpdate, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Updates the status of a business item."""
-    item = db.get(Items, item_id)
+    item = db.scalar(select(Items).where(Items.id == item_id, Items.user_id == user.id))
     new_status = db.scalar(select(ItemStatuses).where(ItemStatuses.code == payload.status_code, ItemStatuses.is_active.is_(True)))
     if new_status is None:
         raise HTTPException(status_code=400, detail="Invalid status.")
@@ -224,7 +235,7 @@ def update_item_status(item_id: int, payload: ItemStatusUpdate, db: Session = De
 
 
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_session)) -> dict[str, Any]:
+def dashboard(user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Returns a summary of counters and upcoming occurrences."""
     counts = db.execute(
         select(
@@ -236,7 +247,7 @@ def dashboard(db: Session = Depends(get_session)) -> dict[str, Any]:
         .join(Items.user)
         .join(Items.status)
         .join(Items.type)
-        .where(Users.email == "demo@zenhome.local", Items.is_archived.is_(False))
+        .where(Items.user_id == user.id, Items.is_archived.is_(False))
     ).mappings().one()
     today_count = db.scalar(
         select(func.count(ScheduleOccurrences.id))
@@ -245,7 +256,7 @@ def dashboard(db: Session = Depends(get_session)) -> dict[str, Any]:
         .join(Items.user)
         .join(ScheduleOccurrences.status)
         .where(
-            Users.email == "demo@zenhome.local",
+            Items.user_id == user.id,
             Items.is_archived.is_(False),
             OccurrenceStatuses.code == "PENDING",
             func.date(ScheduleOccurrences.starts_at) == func.date("now"),
@@ -264,7 +275,7 @@ def dashboard(db: Session = Depends(get_session)) -> dict[str, Any]:
         .join(Items.type)
         .join(Items.user)
         .join(ScheduleOccurrences.status)
-        .where(Users.email == "demo@zenhome.local", Items.is_archived.is_(False), OccurrenceStatuses.code == "PENDING")
+        .where(Items.user_id == user.id, Items.is_archived.is_(False), OccurrenceStatuses.code == "PENDING")
         .where(ScheduleOccurrences.starts_at >= func.datetime("now"))
         .order_by(ScheduleOccurrences.starts_at)
         .limit(10)
@@ -293,9 +304,9 @@ def dictionaries(name: str, db: Session = Depends(get_session)) -> list[dict[str
 
 
 @router.get("/items/{item_id}/detail")
-def item_detail(item_id: int, db: Session = Depends(get_session)) -> dict[str, Any]:
+def item_detail(item_id: int, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Fetches the complete detail for an item, including its checklist and schedules."""
-    item = require(db, Items, item_id, "Item")
+    item = require_owned_item(db, user, item_id)
     result = as_dict(item)
     result.update(serialize_item(item))
     result["checklist_items"] = [as_dict(row) for row in sorted(item.checklist_items, key=lambda row: (row.position, row.id))]
@@ -305,9 +316,9 @@ def item_detail(item_id: int, db: Session = Depends(get_session)) -> dict[str, A
 
 
 @router.post("/items/{item_id}/checklist-items", status_code=status.HTTP_201_CREATED)
-def add_checklist_item(item_id: int, body: ChecklistInput, db: Session = Depends(get_session)) -> dict[str, Any]:
+def add_checklist_item(item_id: int, body: ChecklistInput, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Adds a checklist row to an existing item."""
-    require(db, Items, item_id, "Item")
+    require_owned_item(db, user, item_id)
     position = body.position
     if position is None:
         position = db.scalar(select(func.coalesce(func.max(ChecklistItems.position), -1) + 1).where(ChecklistItems.item_id == item_id)) or 0
@@ -318,9 +329,9 @@ def add_checklist_item(item_id: int, body: ChecklistInput, db: Session = Depends
 
 
 @router.post("/items/{item_id}/checklist-items/reset")
-def reset_checklist(item_id: int, db: Session = Depends(get_session)) -> dict[str, int]:
+def reset_checklist(item_id: int, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, int]:
     """Resets all checked rows in a checklist."""
-    item = require(db, Items, item_id, "Checklist")
+    item = require_owned_item(db, user, item_id, "Checklist")
     reset_count = 0
     for row in item.checklist_items:
         if row.is_checked or row.checked_at is not None:
@@ -331,9 +342,10 @@ def reset_checklist(item_id: int, db: Session = Depends(get_session)) -> dict[st
 
 
 @router.patch("/checklist-items/{checklist_item_id}")
-def edit_checklist_item(checklist_item_id: int, body: ChecklistInput, db: Session = Depends(get_session)) -> dict[str, Any]:
+def edit_checklist_item(checklist_item_id: int, body: ChecklistInput, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Updates the label and state of a checklist row."""
     row = require(db, ChecklistItems, checklist_item_id, "Checklist row")
+    require_owned_item(db, user, row.item_id, "Checklist row")
     row.label = body.label
     if body.position is not None:
         row.position = body.position
@@ -344,10 +356,11 @@ def edit_checklist_item(checklist_item_id: int, body: ChecklistInput, db: Sessio
 
 
 @router.delete("/checklist-items/{checklist_item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_checklist_item(checklist_item_id: int, db: Session = Depends(get_session)) -> None:
+def delete_checklist_item(checklist_item_id: int, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> None:
     """Deletes an existing checklist row."""
-    if db.execute(delete(ChecklistItems).where(ChecklistItems.id == checklist_item_id)).rowcount == 0:
-        raise HTTPException(404, "Checklist row not found.")
+    row = require(db, ChecklistItems, checklist_item_id, "Checklist row")
+    require_owned_item(db, user, row.item_id, "Checklist row")
+    db.delete(row)
 
 
 @router.get("/recurrence-rules")
@@ -385,17 +398,17 @@ def delete_rule(rule_id: int, db: Session = Depends(get_session)) -> None:
 
 
 @router.get("/items/{item_id}/schedules")
-def schedules(item_id: int, db: Session = Depends(get_session)) -> list[dict[str, Any]]:
+def schedules(item_id: int, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> list[dict[str, Any]]:
     """Lists the schedules associated with an item."""
-    item = require(db, Items, item_id, "Item")
+    item = require_owned_item(db, user, item_id)
     return [{**as_dict(row), "recurrence_label": row.recurrence_rule.label if row.recurrence_rule else None}
             for row in sorted(item.schedules, key=lambda row: row.start_at)]
 
 
 @router.post("/items/{item_id}/schedules", status_code=status.HTTP_201_CREATED)
-def add_schedule(item_id: int, body: ScheduleInput, db: Session = Depends(get_session)) -> dict[str, Any]:
+def add_schedule(item_id: int, body: ScheduleInput, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Adds a recurrence schedule to an item."""
-    require(db, Items, item_id, "Item")
+    require_owned_item(db, user, item_id)
     if body.recurrence_rule_id is not None:
         require(db, RecurrenceRules, body.recurrence_rule_id, "Recurrence rule")
     row = Schedules(item_id=item_id, recurrence_rule_id=body.recurrence_rule_id, start_at=body.start_at, end_at=body.end_at, is_active=body.is_active)
@@ -405,14 +418,15 @@ def add_schedule(item_id: int, body: ScheduleInput, db: Session = Depends(get_se
 
 
 @router.delete("/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_schedule(schedule_id: int, db: Session = Depends(get_session)) -> None:
+def delete_schedule(schedule_id: int, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> None:
     """Deletes an existing schedule."""
-    if db.execute(delete(Schedules).where(Schedules.id == schedule_id)).rowcount == 0:
-        raise HTTPException(404, "Schedule not found.")
+    schedule = require(db, Schedules, schedule_id, "Schedule")
+    require_owned_item(db, user, schedule.item_id, "Schedule")
+    db.delete(schedule)
 
 
 @router.get("/occurrences")
-def occurrences(start_at: str | None = None, end_at: str | None = None, db: Session = Depends(get_session)) -> list[dict[str, Any]]:
+def occurrences(start_at: str | None = None, end_at: str | None = None, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> list[dict[str, Any]]:
     """Returns occurrences filtered by period."""
     query = select(
         ScheduleOccurrences,
@@ -421,6 +435,7 @@ def occurrences(start_at: str | None = None, end_at: str | None = None, db: Sess
         ItemTypes.code.label("type_code"),
         OccurrenceStatuses.code.label("status_code"),
     ).join(ScheduleOccurrences.schedule).join(Schedules.item).join(Items.type).join(ScheduleOccurrences.status)
+    query = query.where(Items.user_id == user.id)
     if start_at:
         query = query.where(ScheduleOccurrences.starts_at >= start_at)
     if end_at:
@@ -436,25 +451,26 @@ def occurrences(start_at: str | None = None, end_at: str | None = None, db: Sess
 
 
 @router.patch("/occurrences/{occurrence_id}/status")
-def update_occurrence(occurrence_id: int, body: StatusInput, db: Session = Depends(get_session)) -> dict[str, Any]:
+def update_occurrence(occurrence_id: int, body: StatusInput, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Updates the status of a scheduled occurrence."""
     row = require(db, ScheduleOccurrences, occurrence_id, "Occurrence")
+    require_owned_item(db, user, row.schedule.item_id, "Occurrence")
     row.status_id = dictionary_id(db, OccurrenceStatuses, body.code)
     row.completed_at = datetime.now().isoformat(timespec="seconds") if body.code == "COMPLETED" else None
     return as_dict(row)
 
 
 @router.get("/items/{item_id}/notification-configs")
-def notification_configs(item_id: int, db: Session = Depends(get_session)) -> list[dict[str, Any]]:
+def notification_configs(item_id: int, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> list[dict[str, Any]]:
     """Lists the notification configurations for an item."""
-    item = require(db, Items, item_id, "Item")
+    item = require_owned_item(db, user, item_id)
     return [as_dict(row) for row in item.notification_configs]
 
 
 @router.post("/items/{item_id}/notification-configs", status_code=status.HTTP_201_CREATED)
-def add_notification_config(item_id: int, body: NotificationConfigInput, db: Session = Depends(get_session)) -> dict[str, Any]:
+def add_notification_config(item_id: int, body: NotificationConfigInput, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Creates a notification configuration for an item."""
-    require(db, Items, item_id, "Item")
+    require_owned_item(db, user, item_id)
     row = NotificationConfigs(item_id=item_id, label=body.label, offset_minutes=body.offset_minutes, is_enabled=body.is_enabled)
     db.add(row)
     db.flush()
@@ -462,10 +478,11 @@ def add_notification_config(item_id: int, body: NotificationConfigInput, db: Ses
 
 
 @router.get("/notifications")
-def notifications(status_code: str | None = Query(default=None), db: Session = Depends(get_session)) -> list[dict[str, Any]]:
+def notifications(status_code: str | None = Query(default=None), user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> list[dict[str, Any]]:
     """Returns notifications filtered by status."""
     query = select(Notifications, Items.title.label("item_title"), NotificationStatuses.code.label("status_code")) \
         .join(Notifications.status).join(Notifications.schedule_occurrence).join(ScheduleOccurrences.schedule).join(Schedules.item)
+    query = query.where(Items.user_id == user.id)
     if status_code:
         query = query.where(NotificationStatuses.code == status_code)
     rows = db.execute(query.order_by(Notifications.notify_at)).all()
@@ -473,9 +490,10 @@ def notifications(status_code: str | None = Query(default=None), db: Session = D
 
 
 @router.patch("/notifications/{notification_id}/status")
-def update_notification(notification_id: int, body: StatusInput, db: Session = Depends(get_session)) -> dict[str, Any]:
+def update_notification(notification_id: int, body: StatusInput, user: Users = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, Any]:
     """Updates the status of an existing notification."""
     row = require(db, Notifications, notification_id, "Notification")
+    require_owned_item(db, user, row.schedule_occurrence.schedule.item_id, "Notification")
     row.status_id = dictionary_id(db, NotificationStatuses, body.code)
     row.sent_at = datetime.now().isoformat(timespec="seconds") if body.code == "SENT" else None
     row.error_message = body.error_message

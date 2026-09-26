@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
-    <link href="/static/css/app.css?v=item-detail-1" rel="stylesheet">
+    <link href="/static/css/app.css?v=auth-token-1" rel="stylesheet">
     <script>
         (() => {
             try {
@@ -122,9 +122,9 @@
                     <i class="bi bi-bell"></i>
                 </button>
 
-                <div class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center"
+                <div id="userAvatar" class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center"
                      style="width:36px;height:36px;font-size:13px;">
-                    JD
+                    --
                 </div>
             </div>
 
@@ -135,7 +135,7 @@
             <!-- ================= DASHBOARD ================= -->
             <section class="page" id="page-dashboard">
 
-                <div class="page-title">Bonjour Jean 👋</div>
+                <div class="page-title" id="dashboardGreeting">Bonjour</div>
                 <div class="page-subtitle">
                     Voici ce qui vous attend aujourd'hui.
                 </div>
@@ -978,13 +978,35 @@
     </div>
 </div>
 
+<div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalTitle"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered auth-modal-dialog">
+        <div class="modal-content border-0">
+            <div class="modal-body p-4 p-md-5">
+                <div class="auth-mark"><i class="bi bi-house-heart" aria-hidden="true"></i></div>
+                <h1 class="h4 mb-2" id="loginModalTitle">Connexion à ZenHome</h1>
+                <p class="text-muted mb-4">Saisissez votre token de connexion pour continuer.</p>
+                <form id="loginForm">
+                    <label class="form-label" for="loginToken">Token de connexion</label>
+                    <input class="form-control" id="loginToken" name="token" type="password"
+                           autocomplete="current-password" required autofocus>
+                    <div class="invalid-feedback d-block" id="loginError" role="alert"></div>
+                    <button class="btn btn-dark w-100 mt-3" id="loginSubmit" type="submit">
+                        <i class="bi bi-box-arrow-in-right me-2" aria-hidden="true"></i>Se connecter
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <!-- ================= JS ================= -->
 
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<script src="/static/js/app.js?v=item-updates-2"></script>
+<script src="/static/js/app.js?v=auth-token-1"></script>
 <script>
     (() => {
         const button = document.getElementById('themeToggle');

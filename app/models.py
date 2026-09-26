@@ -70,7 +70,7 @@ class RecurrenceTypes(Base):
 class Users(Base):
     __tablename__ = 'users'
 
-    email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    token: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('1'))
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text('CURRENT_TIMESTAMP'))

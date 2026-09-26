@@ -43,6 +43,19 @@
 $(function initializeApp() {
     const itemUpdateChannel = 'BroadcastChannel' in window ? new BroadcastChannel('zenhome-item-updates') : null;
     let sharedRefreshTimer = null;
+    const authTokenKey = 'zenhome-auth-token';
+    let authToken = null;
+    try { authToken = localStorage.getItem(authTokenKey); } catch (error) { /* stockage indisponible */ }
+    const loginModal = new bootstrap.Modal(document.getElementById('loginModal'), { backdrop: 'static', keyboard: false });
+
+    /** Require a new token after the backend rejects the saved one. */
+    function requireLogin() {
+        authToken = null;
+        try { localStorage.removeItem(authTokenKey); } catch (error) { /* stockage indisponible */ }
+        $('#loginToken').val('');
+        $('#loginError').text('Votre token est invalide ou a été désactivé.');
+        loginModal.show();
+    }
 
     /** Notify other open ZenHome tabs after a successful write. */
     function notifyOtherTabs() {
@@ -72,7 +85,14 @@ $(function initializeApp() {
             contentType: 'application/json',
             dataType: options.dataType ?? (method === 'DELETE' ? undefined : 'json'),
             ...options,
+            headers: {
+                ...(options.headers || {}),
+                ...(authToken ? { 'X-Auth-Token': authToken } : {}),
+            },
             data: options.data ? JSON.stringify(options.data) : undefined
+        });
+        request.fail(function requireLoginForUnauthorizedRequest(xhr) {
+            if (xhr.status === 401 && url !== '/api/auth/me') requireLogin();
         });
         if (method !== 'GET' && method !== 'HEAD') {
             request.done(function syncUpdatedItem() {
@@ -435,6 +455,40 @@ $(function initializeApp() {
             $('[data-dashboard-count="upcoming"]').text(data.upcoming_occurrences.length || 0);
             renderDashboardOccurrences(data.upcoming_occurrences || []);
         } catch (error) { console.error(error); }
+    }
+
+    /** Update the visible user identity after successful token validation. */
+    function displayAuthenticatedUser(user) {
+        $('#dashboardGreeting').text(`Bonjour ${user.display_name}`);
+        const initials = user.display_name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toLocaleUpperCase('fr-FR');
+        $('#userAvatar').text(initials || '?');
+    }
+
+    /** Load the application data once a token has been accepted. */
+    function startAuthenticatedWorkspace(user) {
+        displayAuthenticatedUser(user);
+        const initialItemMatch = location.pathname.match(/^\/item\/(\d+)$/);
+        const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
+        showPage(initialPage);
+        renderCalendarView();
+        loadRecurrenceRules();
+        loadItems();
+        loadDashboard();
+        if (initialItemMatch) openItemView(Number(initialItemMatch[1]));
+    }
+
+    /** Validate the token remembered by this browser before loading private data. */
+    async function restoreAuthentication() {
+        if (!authToken) {
+            loginModal.show();
+            return;
+        }
+        try {
+            const user = await api('/api/auth/me');
+            startAuthenticatedWorkspace(user);
+        } catch (error) {
+            requireLogin();
+        }
     }
 
     /** Refresh every data-backed view after another tab changes an item. */
@@ -901,9 +955,33 @@ $(function initializeApp() {
         resolveConfirmation(false);
     });
 
+    $('#loginForm').on('submit', function handleLogin(event) {
+        event.preventDefault();
+        const token = $('#loginToken').val().trim();
+        if (!token) return;
+        const submitButton = $('#loginSubmit').prop('disabled', true);
+        $('#loginError').text('');
+        $.ajax({
+            url: '/api/auth/me',
+            dataType: 'json',
+            headers: { 'X-Auth-Token': token },
+        }).done(function acceptLogin(user) {
+            try {
+                localStorage.setItem(authTokenKey, token);
+            } catch (error) {
+                $('#loginError').text('Le stockage local est indisponible dans ce navigateur.');
+                return;
+            }
+            authToken = token;
+            loginModal.hide();
+            startAuthenticatedWorkspace(user);
+        }).fail(function rejectLogin() {
+            $('#loginError').text('Token invalide. Vérifiez votre saisie.');
+        }).always(function finishLoginRequest() {
+            submitButton.prop('disabled', false);
+        });
+    });
+
     startDevelopmentReload();
-    const initialItemMatch = location.pathname.match(/^\/item\/(\d+)$/);
-    const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
-    showPage(initialPage); renderCalendarView(); loadRecurrenceRules(); loadItems(); loadDashboard();
-    if (initialItemMatch) openItemView(Number(initialItemMatch[1]));
+    restoreAuthentication();
 });
