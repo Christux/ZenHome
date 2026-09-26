@@ -5,7 +5,7 @@ import logging
 import secrets
 from typing import Any
 
-from sqlalchemy import create_engine, event, inspect, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from .globals import DATABASE_PATH, DATABASE_URL, ZENHOME_ENV
@@ -55,57 +55,10 @@ def get_session() -> Generator[Session, None, None]:
         session.close()
 
 
-def migrate_users_table() -> None:
-    """Replaces the legacy email column with permanent per-user login tokens."""
-    inspector = inspect(engine)
-    if not inspector.has_table("users") or "email" not in {
-        column["name"] for column in inspector.get_columns("users")
-    }:
-        return
-
-    with engine.connect() as connection:
-        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
-        connection.commit()
-        transaction = connection.begin()
-        try:
-            connection.exec_driver_sql(
-                """CREATE TABLE users_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    token TEXT NOT NULL UNIQUE,
-                    display_name TEXT NOT NULL,
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )"""
-            )
-            users = connection.exec_driver_sql(
-                "SELECT id, display_name, is_active, created_at, updated_at FROM users"
-            ).mappings().all()
-            for user in users:
-                token = secrets.token_urlsafe(32)
-                connection.exec_driver_sql(
-                    """INSERT INTO users_new
-                       (id, token, display_name, is_active, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (user["id"], token, user["display_name"], user["is_active"], user["created_at"], user["updated_at"]),
-                )
-                logger.warning("Login token for %s: %s", user["display_name"], token)
-            connection.exec_driver_sql("DROP TABLE users")
-            connection.exec_driver_sql("ALTER TABLE users_new RENAME TO users")
-            transaction.commit()
-        except Exception:
-            transaction.rollback()
-            raise
-        finally:
-            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
-            connection.commit()
-
-
 def initialize_database(create_demo_user: bool = True) -> None:
     """Creates the schema and demo user if needed."""
     DATABASE_PATH.parent.mkdir(exist_ok=True)
     logger.info("Initializing SQLite database: %s", DATABASE_PATH)
-    migrate_users_table()
     Base.metadata.create_all(engine)
     session = SessionLocal()
     try:
