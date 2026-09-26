@@ -27,6 +27,12 @@ Pour lister les utilisateurs sans afficher leurs tokens :
 docker compose exec zenhome python -m app.cli list-users
 ```
 
+Pour renouveler le token d'un utilisateur, indiquez son identifiant. L'ancien token est immédiatement invalidé :
+
+```sh
+docker compose exec zenhome python -m app.cli renew-token 1
+```
+
 La commande peut aussi être lancée sans démarrer le serveur :
 
 ```sh

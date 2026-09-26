@@ -42,6 +42,23 @@ def get_user_token(user_id: int) -> tuple[str, str]:
         return user.display_name, user.token
 
 
+def renew_user_token(user_id: int) -> tuple[str, str]:
+    """Replace a user's login token and return the new token."""
+    session = SessionLocal()
+    try:
+        user = session.scalar(select(Users).where(Users.id == user_id))
+        if user is None:
+            raise ValueError(f"Aucun utilisateur avec l'identifiant {user_id}.")
+        user.token = secrets.token_urlsafe(32)
+        session.commit()
+        return user.display_name, user.token
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 def list_users() -> list[tuple[int, str, bool]]:
     """Return user IDs, display names, and active states."""
     with SessionLocal() as session:
@@ -61,6 +78,10 @@ def main() -> int:
     )
     show_token_parser.add_argument("user_id", type=int, help="Identifiant de l'utilisateur")
     subparsers.add_parser("list-users", help="Lister les utilisateurs")
+    renew_token_parser = subparsers.add_parser(
+        "renew-token", help="Renouveler le token d'un utilisateur"
+    )
+    renew_token_parser.add_argument("user_id", type=int, help="Identifiant de l'utilisateur")
     args = parser.parse_args()
 
     try:
@@ -68,6 +89,8 @@ def main() -> int:
             token = create_user(args.display_name)
         elif args.command == "show-token":
             display_name, token = get_user_token(args.user_id)
+        elif args.command == "renew-token":
+            display_name, token = renew_user_token(args.user_id)
         else:
             users = list_users()
     except ValueError as error:
@@ -82,6 +105,9 @@ def main() -> int:
     elif args.command == "show-token":
         print(f"Utilisateur : {display_name} (ID {args.user_id})")
         print(f"Token : {token}")
+    elif args.command == "renew-token":
+        print(f"Token renouvelé pour {display_name} (ID {args.user_id})")
+        print(f"Nouveau token : {token}")
     elif users:
         print("ID\tNom\tÉtat")
         for user_id, display_name, is_active in users:
