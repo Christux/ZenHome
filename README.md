@@ -15,6 +15,18 @@ Créez un utilisateur depuis le conteneur en cours d'exécution. Son token est a
 docker compose exec zenhome python -m app.cli create-user "Alice"
 ```
 
+Pour retrouver le token d'un utilisateur existant, indiquez son identifiant :
+
+```sh
+docker compose exec zenhome python -m app.cli show-token 1
+```
+
+Pour lister les utilisateurs sans afficher leurs tokens :
+
+```sh
+docker compose exec zenhome python -m app.cli list-users
+```
+
 La commande peut aussi être lancée sans démarrer le serveur :
 
 ```sh
