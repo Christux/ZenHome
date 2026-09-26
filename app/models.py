@@ -196,7 +196,9 @@ class Schedules(Base):
 
     item: Mapped['Items'] = relationship('Items', back_populates='schedules')
     recurrence_rule: Mapped[Optional['RecurrenceRules']] = relationship('RecurrenceRules', back_populates='schedules')
-    schedule_occurrences: Mapped[list['ScheduleOccurrences']] = relationship('ScheduleOccurrences', back_populates='schedule')
+    schedule_occurrences: Mapped[list['ScheduleOccurrences']] = relationship(
+        'ScheduleOccurrences', back_populates='schedule', passive_deletes=True
+    )
 
 
 class ScheduleOccurrences(Base):

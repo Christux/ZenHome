@@ -14,6 +14,7 @@ ZenHome est une application personnelle de gestion de notes, checklists et tâch
 - `app/database.py` configure SQLite, les sessions et l'initialisation des données de référence.
 - `app/daemon.py` génère périodiquement les occurrences planifiées et notifications.
 - `app/cli.py` gère les utilisateurs et leurs tokens.
+- `tests/` contient les tests pytest de l'API, du CLI et du daemon; `tests/conftest.py` fournit une base SQLite en mémoire.
 - `index.html`, `static/js/app.js` et `static/css/app.css` forment l'interface. Elle utilise Bootstrap, jQuery et Bootstrap Icons via CDN; aucun processus de compilation frontend n'est défini.
 - `config.yaml`, `Dockerfile` et `docker-compose.yml` décrivent le déploiement, notamment comme add-on Home Assistant et conteneur Docker.
 
@@ -24,6 +25,13 @@ Installer les dépendances Python puis lancer le serveur depuis la racine du dé
 ```sh
 pip install -r requirements.txt
 ZENHOME_ENV=development uvicorn app.main:app --reload
+```
+
+Installer les dépendances de développement et lancer les tests depuis la racine :
+
+```sh
+pip install -r requirements-dev.txt
+python -m pytest -q
 ```
 
 En développement, `ZENHOME_ENV=development` active notamment les logs SQL et l'endpoint de version de développement. Le service écoute sur le port 8000 par défaut.
@@ -53,4 +61,6 @@ Ces commandes affichent les tokens lorsque nécessaire. Ne jamais ajouter de tok
 
 ## Vérification
 
-Aucune suite de tests n'est actuellement présente dans le dépôt. Pour une modification d'API, vérifier au minimum le démarrage du service et `/api/health`; vérifier également le parcours concerné et le cloisonnement entre utilisateurs. Pour une modification de schéma ou de déploiement, vérifier l'initialisation de la base et la configuration Docker correspondante.
+La suite pytest couvre les parcours principaux de l'API, l'authentification et le cloisonnement entre utilisateurs, les checklists, la récurrence, les notifications, le dashboard, le CLI et le daemon. Les tests utilisent une base SQLite en mémoire et ne doivent pas lire ni modifier `data/zenhome.sqlite3`.
+
+Exécuter `python -m pytest -q` après une modification du comportement applicatif. Pour une modification d'API, vérifier également le parcours concerné et le cloisonnement entre utilisateurs. Pour une modification de schéma ou de déploiement, vérifier l'initialisation de la base et la configuration Docker correspondante.
