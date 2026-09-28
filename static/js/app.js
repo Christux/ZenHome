@@ -565,6 +565,20 @@ $(function initializeApp() {
             alert('Impossible de copier le lien depuis ce navigateur.');
         }
     });
+    $('#shareItemLink').on('click', async function sharePermanentItemLink() {
+        const permalink = new URL($('#itemDetailPermalink').attr('href'), location.origin).href;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: document.title, url: permalink });
+                return;
+            }
+            await navigator.clipboard.writeText(permalink);
+            $(this).attr('aria-label', 'Lien copié').attr('title', 'Lien copié');
+            setTimeout(() => $(this).attr('aria-label', 'Partager').attr('title', 'Partager'), 1500);
+        } catch (error) {
+            if (error.name !== 'AbortError') alert('Impossible de partager ce lien depuis ce navigateur.');
+        }
+    });
     $(window).on('popstate', function restoreRouteFromHistory() {
         const itemMatch = location.pathname.match(/^\/item\/(\d+)$/);
         if (itemMatch) {
