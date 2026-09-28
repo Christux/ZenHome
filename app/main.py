@@ -12,13 +12,15 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .database import initialize_database
 from .daemon import daemon_loop
 from .globals import PROJECT_DIR
 from .logging_config import configure_logging
+from .services import ServiceError
 from .web_routes import public_router, router as web_router
 
 
@@ -53,6 +55,14 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(ServiceError)
+async def service_error_handler(_request: Request, exc: ServiceError) -> JSONResponse:
+    """Convert a business service error into its HTTP response."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
 app.include_router(web_router)
 app.include_router(public_router)
 app.mount("/static", StaticFiles(directory=PROJECT_DIR / "static"), name="static")
