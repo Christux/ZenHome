@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from sqlalchemy import select
 
 from app.models import Items
@@ -99,11 +101,14 @@ def test_recurrence_rules_are_created_listed_and_validated(client) -> None:
 
 
 def test_schedule_occurrence_and_notification_lifecycle(client, test_context) -> None:
+    schedule_start = (datetime.now() + timedelta(days=1)).replace(
+        hour=20, minute=0, second=0, microsecond=0
+    )
     item = client.post("/api/items", headers=auth(), json={
         "title": "Rendez-vous", "type_code": "TASK",
     }).json()
     schedule = client.post(f"/api/items/{item['id']}/schedules", headers=auth(), json={
-        "start_at": "2030-04-10T20:00:00", "end_at": "21:00",
+        "start_at": schedule_start.isoformat(), "end_at": "21:00",
     })
     assert schedule.status_code == 201
     config = client.post(f"/api/items/{item['id']}/notification-configs", headers=auth(), json={
@@ -111,24 +116,25 @@ def test_schedule_occurrence_and_notification_lifecycle(client, test_context) ->
     })
     assert config.status_code == 201
 
+    occurrence = client.get("/api/occurrences", headers=auth()).json()[0]
+    assert occurrence["item_title"] == "Rendez-vous"
+    assert occurrence["ends_at"] == f"{schedule_start.date().isoformat()}T21:00:00"
+
     from app.daemon import create_notifications, create_occurrences
-    from datetime import datetime
 
     with test_context.session_factory() as session:
-        assert create_occurrences(session, datetime(2030, 4, 10, 0, 0)) == 1
+        assert create_occurrences(session, schedule_start.replace(hour=0)) == 0
         assert create_notifications(session) == 1
         session.commit()
 
     occurrence = client.get("/api/occurrences", headers=auth()).json()[0]
-    assert occurrence["item_title"] == "Rendez-vous"
-    assert occurrence["ends_at"] == "2030-04-10T21:00:00"
     assert client.patch(
         f"/api/occurrences/{occurrence['id']}/status", headers=auth(), json={"code": "COMPLETED"}
     ).json()["completed_at"] is not None
 
     notification = client.get("/api/notifications?status_code=PENDING", headers=auth()).json()[0]
     assert notification["item_title"] == "Rendez-vous"
-    assert notification["notify_at"] == "2030-04-10T19:45:00"
+    assert notification["notify_at"] == f"{schedule_start.date().isoformat()}T19:45:00"
     assert client.patch(
         f"/api/notifications/{notification['id']}/status", headers=auth(),
         json={"code": "SENT"},

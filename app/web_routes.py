@@ -9,6 +9,7 @@ from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from .auth import get_current_user
+from .daemon import create_occurrences
 from .business import (
     ChecklistInput,
     ItemCreate,
@@ -414,6 +415,7 @@ def add_schedule(item_id: int, body: ScheduleInput, user: Users = Depends(get_cu
     row = Schedules(item_id=item_id, recurrence_rule_id=body.recurrence_rule_id, start_at=body.start_at, end_at=body.end_at, is_active=body.is_active)
     db.add(row)
     db.flush()
+    create_occurrences(db)
     return as_dict(row)
 
 
