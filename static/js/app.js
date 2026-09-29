@@ -71,6 +71,13 @@ $(function initializeApp() {
         }
     }
 
+    function formatAuditDate(value) {
+        const isoValue = value.replace(' ', 'T');
+        const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(isoValue);
+        const date = new Date(hasTimezone ? isoValue : `${isoValue}Z`);
+        return Number.isNaN(date.getTime()) ? value : date.toLocaleString('fr-FR');
+    }
+
     /**
      * Send a JSON request to the ZenHome API.
      *
@@ -368,8 +375,8 @@ $(function initializeApp() {
             const notifications = item.notification_configs?.length
                 ? item.notification_configs.map(config => `<div>${escapeHtml(config.label || `Rappel ${config.offset_minutes} min avant`)}${config.is_enabled ? '' : ' (désactivé)'}</div>`).join('')
                 : '<div class="text-muted">Aucun rappel configuré</div>';
-            const createdAt = item.created_at ? new Date(item.created_at).toLocaleString('fr-FR') : '—';
-            const updatedAt = item.updated_at ? new Date(item.updated_at).toLocaleString('fr-FR') : '—';
+            const createdAt = item.created_at ? formatAuditDate(item.created_at) : '—';
+            const updatedAt = item.updated_at ? formatAuditDate(item.updated_at) : '—';
             $('#itemDetailType').text(item.type_label || item.type_code);
             $('#itemDetailStatus').text(item.status_label || statusLabel[item.status_code] || '');
             document.title = `ZenHome — ${item.title}`;

@@ -35,6 +35,7 @@ def test_item_crud_filters_and_user_isolation(client, test_context) -> None:
         f"/api/items/{alice_item.json()['id']}", headers=auth(), json={"content": "Modifié"}
     )
     assert updated.json()["content"] == "Modifié"
+    assert updated.json()["updated_at"].endswith("+00:00")
     status = client.patch(
         f"/api/items/{alice_item.json()['id']}/status", headers=auth(), json={"status_code": "DONE"}
     )
@@ -71,7 +72,7 @@ def test_checklist_creation_edit_reset_and_delete(client) -> None:
         json={"label": "Oeufs frais", "is_checked": True},
     ).json()
     assert edited["is_checked"] is True
-    assert edited["checked_at"] is not None
+    assert edited["checked_at"].endswith("+00:00")
     assert client.post(f"/api/items/{item_id}/checklist-items/reset", headers=auth()).json() == {
         "item_id": item_id, "reset_count": 1
     }
@@ -128,17 +129,19 @@ def test_schedule_occurrence_and_notification_lifecycle(client, test_context) ->
         session.commit()
 
     occurrence = client.get("/api/occurrences", headers=auth()).json()[0]
-    assert client.patch(
+    completed = client.patch(
         f"/api/occurrences/{occurrence['id']}/status", headers=auth(), json={"code": "COMPLETED"}
-    ).json()["completed_at"] is not None
+    ).json()
+    assert completed["completed_at"].endswith("+00:00")
 
     notification = client.get("/api/notifications?status_code=PENDING", headers=auth()).json()[0]
     assert notification["item_title"] == "Rendez-vous"
     assert notification["notify_at"] == f"{schedule_start.date().isoformat()}T19:45:00"
-    assert client.patch(
+    sent = client.patch(
         f"/api/notifications/{notification['id']}/status", headers=auth(),
         json={"code": "SENT"},
-    ).json()["sent_at"] is not None
+    ).json()
+    assert sent["sent_at"].endswith("+00:00")
     assert client.delete(f"/api/schedules/{schedule.json()['id']}", headers=auth()).status_code == 204
 
 

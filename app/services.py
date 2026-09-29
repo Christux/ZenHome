@@ -1,6 +1,6 @@
 """Functional operations for the ZenHome API, independent from HTTP routing."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from sqlalchemy import case, delete, func, select
@@ -43,6 +43,11 @@ class ServiceError(Exception):
         super().__init__(detail)
         self.status_code = status_code
         self.detail = detail
+
+
+def _utc_now_iso() -> str:
+    """Return the current timestamp with an explicit UTC offset."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def as_dict(instance: object) -> dict[str, Any]:
@@ -147,7 +152,7 @@ def update_item(user_id: int, item_id: int, payload: ItemUpdate, session: Sessio
     item = require_owned_item(session, user_id, item_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
-    item.updated_at = datetime.now().isoformat(timespec="seconds")
+    item.updated_at = _utc_now_iso()
     return serialize_item(item)
 
 
@@ -177,7 +182,7 @@ def update_item_status(user_id: int, item_id: int, payload: ItemStatusUpdate, se
     if item is None:
         raise ServiceError(404, "Item not found.")
     item.status_id = new_status.id
-    item.updated_at = datetime.now().isoformat(timespec="seconds")
+    item.updated_at = _utc_now_iso()
     return serialize_item(item)
 
 
@@ -292,7 +297,7 @@ def edit_checklist_item(user_id: int, checklist_item_id: int, body: ChecklistInp
         row.position = body.position
     if body.is_checked is not None:
         row.is_checked = body.is_checked
-        row.checked_at = datetime.now().isoformat(timespec="seconds") if body.is_checked else None
+        row.checked_at = _utc_now_iso() if body.is_checked else None
     return as_dict(row)
 
 
@@ -389,7 +394,7 @@ def update_occurrence(user_id: int, occurrence_id: int, body: StatusInput, sessi
     row = require(session, ScheduleOccurrences, occurrence_id, "Occurrence")
     require_owned_item(session, user_id, row.schedule.item_id, "Occurrence")
     row.status_id = dictionary_id(session, OccurrenceStatuses, body.code)
-    row.completed_at = datetime.now().isoformat(timespec="seconds") if body.code == "COMPLETED" else None
+    row.completed_at = _utc_now_iso() if body.code == "COMPLETED" else None
     return as_dict(row)
 
 
@@ -424,6 +429,6 @@ def update_notification(user_id: int, notification_id: int, body: StatusInput, s
     row = require(session, Notifications, notification_id, "Notification")
     require_owned_item(session, user_id, row.schedule_occurrence.schedule.item_id, "Notification")
     row.status_id = dictionary_id(session, NotificationStatuses, body.code)
-    row.sent_at = datetime.now().isoformat(timespec="seconds") if body.code == "SENT" else None
+    row.sent_at = _utc_now_iso() if body.code == "SENT" else None
     row.error_message = body.error_message
     return as_dict(row)
