@@ -372,14 +372,18 @@ $(function initializeApp() {
             const updatedAt = item.updated_at ? new Date(item.updated_at).toLocaleString('fr-FR') : '—';
             $('#itemDetailType').text(item.type_label || item.type_code);
             $('#itemDetailStatus').text(item.status_label || statusLabel[item.status_code] || '');
-            $('#itemDetailPermalink').attr('href', `/item/${item.id}`).text(`${location.origin}/item/${item.id}`);
             document.title = `ZenHome — ${item.title}`;
             $('#itemDetailContent').empty().append(card).append(`
                 <section class="item-detail-info" aria-label="Informations complémentaires">
                     <div><h2>Planification</h2>${schedules}</div>
                     <div><h2>Rappels</h2>${notifications}</div>
                     <div><h2>Historique</h2><div>Créé le ${escapeHtml(createdAt)}</div><div>Modifié le ${escapeHtml(updatedAt)}</div></div>
-                </section>`);
+                </section>
+                <div class="item-detail-actions">
+                    <button class="btn btn-light" id="itemDetailBackBottom" type="button">
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i> Retour
+                    </button>
+                </div>`);
             $('#itemDetailScreen').attr('aria-busy', 'false');
         } catch (error) {
             if (currentItemId !== itemId) return;
@@ -555,9 +559,12 @@ $(function initializeApp() {
         }
         showPage(history.state?.fromPage || 'dashboard', true);
     });
+    $('#itemDetailContent').on('click', '#itemDetailBackBottom', function returnFromItemDetail() {
+        $('#itemDetailBack').trigger('click');
+    });
     $('#copyItemLink').on('click', async function copyPermanentItemLink() {
         try {
-            const permalink = new URL($('#itemDetailPermalink').attr('href'), location.origin).href;
+            const permalink = new URL(`/item/${currentItemId}`, location.origin).href;
             await navigator.clipboard.writeText(permalink);
             $(this).attr('aria-label', 'Lien copié').attr('title', 'Lien copié');
             setTimeout(() => $(this).attr('aria-label', 'Copier le lien').attr('title', 'Copier le lien'), 1500);
@@ -566,7 +573,7 @@ $(function initializeApp() {
         }
     });
     $('#shareItemLink').on('click', async function sharePermanentItemLink() {
-        const permalink = new URL($('#itemDetailPermalink').attr('href'), location.origin).href;
+        const permalink = new URL(`/item/${currentItemId}`, location.origin).href;
         try {
             if (navigator.share) {
                 await navigator.share({ title: document.title, url: permalink });

@@ -263,14 +263,6 @@ body {
     min-width: 0;
 }
 
-.item-detail-permalink {
-    overflow: hidden;
-    color: var(--text-muted);
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .item-detail-content {
     width: min(900px, 100%);
     margin: 0 auto;
@@ -302,6 +294,12 @@ body {
     color: var(--text);
     font-size: 13px;
     font-weight: 700;
+}
+
+.item-detail-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 24px;
 }
 
 .search-empty {
@@ -761,11 +759,6 @@ body {
 
     .item-detail-toolbar > .d-flex {
         gap: 6px !important;
-    }
-
-    .item-detail-permalink {
-        max-width: 30vw;
-        font-size: 10px;
     }
 
     .item-detail-content {
