@@ -680,6 +680,7 @@ $(function initializeApp() {
         updateCreateModalFields();
         $('#newTitle, #newContent').val('');
         $('#newDate').val(todayValue);
+        $('#newTime').val('09:00');
         $('#newRecurrence').val('');
         $('#newChecklistItems').empty();
         $('#newNotificationConfigs').empty();
@@ -693,7 +694,10 @@ $(function initializeApp() {
         const supportsRecurrence = createItemType !== 'TASK';
         $('#dateCreateLabel').text(createItemType === 'TASK' ? 'Date d’échéance' : 'Planification');
         $('#recurrenceCreateField').toggleClass('d-none', !supportsRecurrence);
-        $('#dateCreateField').toggleClass('col-md-6', supportsRecurrence).toggleClass('col-12', !supportsRecurrence);
+        $('#dateCreateField, #timeCreateField')
+            .toggleClass('col-md-4', supportsRecurrence)
+            .toggleClass('col-md-6', !supportsRecurrence);
+        $('#recurrenceCreateField').toggleClass('col-md-4', supportsRecurrence).toggleClass('col-md-6', !supportsRecurrence);
         $('#checklistCreateFields').toggleClass('d-none', createItemType !== 'CHECKLIST');
     }
 
@@ -803,6 +807,7 @@ $(function initializeApp() {
         $('#newTitle').val(item.title || '');
         $('#newContent').val(item.content || '');
         $('#newDate').val(schedule?.start_at?.slice(0, 10) || '');
+        $('#newTime').val(schedule?.start_at?.slice(11, 16) || '09:00');
         $('#newRecurrence').val(schedule?.recurrence_rule_id || '');
         $('#newNotificationConfigs').empty();
         (details.notification_configs || []).forEach(appendNewNotificationConfig);
@@ -816,6 +821,7 @@ $(function initializeApp() {
         if (!title) return $('#newTitle').trigger('focus');
         const notificationConfigs = readNewNotificationConfigs();
         if (notificationConfigs === null) return;
+        if ($('#newDate').val() && !$('#newTime').val()) return $('#newTime').trigger('focus');
         try {
             if (editingItem) {
                 await api(`/api/items/${editingItem.id}`, {
@@ -828,11 +834,12 @@ $(function initializeApp() {
                     return api(`/api/schedules/${schedule.id}`, { method: 'DELETE' });
                 }));
                 const date = $('#newDate').val();
+                const time = $('#newTime').val();
                 if (date) {
                     await api(`/api/items/${editingItem.id}/schedules`, {
                         method: 'POST',
                         data: {
-                            start_at: `${date}T09:00:00`,
+                            start_at: `${date}T${time}:00`,
                             recurrence_rule_id: $('#newRecurrence').val() ? Number($('#newRecurrence').val()) : null
                         }
                     });
@@ -852,10 +859,11 @@ $(function initializeApp() {
                 }
             });
             const date = $('#newDate').val();
+            const time = $('#newTime').val();
             if (date) await api(`/api/items/${item.id}/schedules`, {
                 method: 'POST',
                 data: {
-                    start_at: `${date}T09:00:00`,
+                    start_at: `${date}T${time}:00`,
                     recurrence_rule_id: $('#newRecurrence').val() ? Number($('#newRecurrence').val()) : null
                 }
             });
