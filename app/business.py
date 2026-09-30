@@ -5,6 +5,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class NotificationConfigInput(BaseModel):
+    """Payload used to define a notification configuration."""
+
+    label: str | None = Field(default=None, max_length=100)
+    offset_minutes: int = Field(default=0, ge=0)
+    is_enabled: bool = True
+
+
 class ItemStatusUpdate(BaseModel):
     """Payload used to update an item's status."""
 
@@ -16,6 +24,7 @@ class ItemUpdate(BaseModel):
 
     title: str | None = Field(default=None, min_length=1, max_length=250)
     content: str | None = None
+    notification_configs: list[NotificationConfigInput] | None = None
 
 
 class ChecklistInput(BaseModel):
@@ -34,6 +43,7 @@ class ItemCreate(BaseModel):
     type_code: Literal["NOTE", "CHECKLIST", "TASK"] = "NOTE"
     status_code: Literal["TODO", "IN_PROGRESS", "DONE", "CANCELLED"] = "TODO"
     checklist_items: list[ChecklistInput] = Field(default_factory=list)
+    notification_configs: list[NotificationConfigInput] = Field(default_factory=list)
 
 
 class RuleInput(BaseModel):
@@ -54,14 +64,6 @@ class ScheduleInput(BaseModel):
     end_at: str | None = None
     recurrence_rule_id: int | None = None
     is_active: bool = True
-
-
-class NotificationConfigInput(BaseModel):
-    """Payload used to define a notification configuration."""
-
-    label: str | None = Field(default=None, max_length=100)
-    offset_minutes: int = 0
-    is_enabled: bool = True
 
 
 class StatusInput(BaseModel):

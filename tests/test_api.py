@@ -82,6 +82,33 @@ def test_checklist_creation_edit_reset_and_delete(client) -> None:
     }).status_code == 422
 
 
+def test_item_notification_configs_create_replace_and_validate(client) -> None:
+    created = client.post("/api/items", headers=auth(), json={
+        "title": "Rendez-vous",
+        "notification_configs": [
+            {"offset_minutes": 60},
+            {"label": "Juste avant", "offset_minutes": 5},
+        ],
+    })
+    assert created.status_code == 201
+    item_id = created.json()["id"]
+    configs = client.get(f"/api/items/{item_id}/detail", headers=auth()).json()["notification_configs"]
+    assert [config["offset_minutes"] for config in configs] == [60, 5]
+
+    assert client.patch(f"/api/items/{item_id}", headers=auth(), json={
+        "notification_configs": [{"offset_minutes": 10}],
+    }).status_code == 200
+    configs = client.get(f"/api/items/{item_id}/detail", headers=auth()).json()["notification_configs"]
+    assert [config["offset_minutes"] for config in configs] == [10]
+
+    assert client.patch(f"/api/items/{item_id}", headers=auth(), json={"title": "Modifié"}).status_code == 200
+    configs = client.get(f"/api/items/{item_id}/detail", headers=auth()).json()["notification_configs"]
+    assert [config["offset_minutes"] for config in configs] == [10]
+    assert client.post("/api/items", headers=auth(), json={
+        "title": "Rappel invalide", "notification_configs": [{"offset_minutes": -1}],
+    }).status_code == 422
+
+
 def test_recurrence_rules_are_created_listed_and_validated(client) -> None:
     created = client.post("/api/recurrence-rules", headers=auth(), json={
         "recurrence_type_code": "WEEKLY", "label": "Lundi mercredi",

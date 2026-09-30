@@ -136,6 +136,13 @@ def create_item(user_id: int, payload: ItemCreate, session: Session) -> dict[str
             position=checklist_item.position if checklist_item.position is not None else position,
             is_checked=bool(checklist_item.is_checked),
         ))
+    for notification_config in payload.notification_configs:
+        session.add(NotificationConfigs(
+            item_id=item.id,
+            label=notification_config.label,
+            offset_minutes=notification_config.offset_minutes,
+            is_enabled=notification_config.is_enabled,
+        ))
     return fetch_item(item.id, session)
 
 
@@ -150,8 +157,21 @@ def fetch_item(item_id: int, session: Session) -> dict[str, Any]:
 def update_item(user_id: int, item_id: int, payload: ItemUpdate, session: Session) -> dict[str, Any]:
     """Update editable fields on an item owned by the user."""
     item = require_owned_item(session, user_id, item_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    values = payload.model_dump(exclude_unset=True, exclude={"notification_configs"})
+    configs_to_replace = payload.notification_configs if "notification_configs" in payload.model_fields_set else None
+    for field, value in values.items():
         setattr(item, field, value)
+    if configs_to_replace is not None:
+        config_ids = select(NotificationConfigs.id).where(NotificationConfigs.item_id == item_id)
+        session.execute(delete(Notifications).where(Notifications.notification_config_id.in_(config_ids)))
+        session.execute(delete(NotificationConfigs).where(NotificationConfigs.item_id == item_id))
+        for notification_config in configs_to_replace:
+            session.add(NotificationConfigs(
+                item_id=item.id,
+                label=notification_config.label,
+                offset_minutes=notification_config.offset_minutes,
+                is_enabled=notification_config.is_enabled,
+            ))
     item.updated_at = _utc_now_iso()
     return serialize_item(item)
 

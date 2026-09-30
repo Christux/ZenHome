@@ -682,6 +682,7 @@ $(function initializeApp() {
         $('#newDate').val(todayValue);
         $('#newRecurrence').val('');
         $('#newChecklistItems').empty();
+        $('#newNotificationConfigs').empty();
         if (createItemType === 'CHECKLIST') appendNewChecklistItem();
     }
 
@@ -727,6 +728,57 @@ $(function initializeApp() {
         }).get();
     }
 
+    /** Add a notification configuration row to the item form. */
+    function appendNewNotificationConfig(config = {}) {
+        const row = $(`
+            <div class="notification-create-row row g-2 align-items-center mb-2">
+                <div class="col-12 col-md-4">
+                    <input class="form-control new-notification-label" maxlength="100" placeholder="Libellé (facultatif)" aria-label="Libellé du rappel">
+                </div>
+                <div class="col-8 col-md-4">
+                    <div class="input-group">
+                        <input class="form-control new-notification-offset" type="number" min="0" step="1" required aria-label="Délai du rappel en minutes">
+                        <span class="input-group-text">min avant</span>
+                    </div>
+                </div>
+                <div class="col-3 col-md-3">
+                    <div class="form-check">
+                        <input class="form-check-input new-notification-enabled" type="checkbox">
+                        <label class="form-check-label">Activé</label>
+                    </div>
+                </div>
+                <div class="col-1 col-md-1 text-end">
+                    <button type="button" class="btn btn-light remove-new-notification" title="Supprimer le rappel" aria-label="Supprimer le rappel">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>`);
+        row.find('.new-notification-label').val(config.label || '');
+        row.find('.new-notification-offset').val(config.offset_minutes ?? 15);
+        row.find('.new-notification-enabled').prop('checked', config.is_enabled ?? true);
+        $('#newNotificationConfigs').append(row);
+    }
+
+    /** Read and validate notification configurations from the item form. */
+    function readNewNotificationConfigs() {
+        const invalidOffset = $('#newNotificationConfigs .new-notification-offset').filter(function findInvalidOffset() {
+            return !this.checkValidity();
+        }).first();
+        if (invalidOffset.length) {
+            invalidOffset.trigger('focus');
+            invalidOffset.get(0).reportValidity();
+            return null;
+        }
+        return $('#newNotificationConfigs .notification-create-row').map(function readNotificationConfig() {
+            const row = $(this);
+            return {
+                label: row.find('.new-notification-label').val().trim() || null,
+                offset_minutes: Number(row.find('.new-notification-offset').val()),
+                is_enabled: row.find('.new-notification-enabled').is(':checked')
+            };
+        }).get();
+    }
+
     /** Create checklist rows using the same API payload as the existing add-row flow. */
     function addChecklistItems(itemId, checklistItems) {
         return Promise.all(checklistItems.map(function addChecklistItem(checklistItem) {
@@ -752,6 +804,8 @@ $(function initializeApp() {
         $('#newContent').val(item.content || '');
         $('#newDate').val(schedule?.start_at?.slice(0, 10) || '');
         $('#newRecurrence').val(schedule?.recurrence_rule_id || '');
+        $('#newNotificationConfigs').empty();
+        (details.notification_configs || []).forEach(appendNewNotificationConfig);
         $('#checklistCreateFields').addClass('d-none');
         bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal')).show();
     }
@@ -760,9 +814,14 @@ $(function initializeApp() {
     $('#createItem').on('click', async function handleItemSubmit() {
         const title = $('#newTitle').val().trim();
         if (!title) return $('#newTitle').trigger('focus');
+        const notificationConfigs = readNewNotificationConfigs();
+        if (notificationConfigs === null) return;
         try {
             if (editingItem) {
-                await api(`/api/items/${editingItem.id}`, { method: 'PATCH', data: { title, content: $('#newContent').val().trim() || null } });
+                await api(`/api/items/${editingItem.id}`, {
+                    method: 'PATCH',
+                    data: { title, content: $('#newContent').val().trim() || null, notification_configs: notificationConfigs }
+                });
                 const schedules = await api(`/api/items/${editingItem.id}/schedules`);
                 /** Delete one existing schedule before replacing it. */
                 await Promise.all(schedules.map(function deleteSchedule(schedule) {
@@ -788,7 +847,8 @@ $(function initializeApp() {
                     title,
                     content: $('#newContent').val().trim() || null,
                     type_code: createItemType,
-                    checklist_items: createItemType === 'CHECKLIST' ? readNewChecklistItems() : []
+                    checklist_items: createItemType === 'CHECKLIST' ? readNewChecklistItems() : [],
+                    notification_configs: notificationConfigs
                 }
             });
             const date = $('#newDate').val();
@@ -918,6 +978,15 @@ $(function initializeApp() {
     /** Remove a checklist row from the item creation form. */
     $(document).on('click', '.remove-new-check', function handleRemoveNewChecklistItem() {
         $(this).closest('.checklist-create-row').remove();
+    });
+    /** Add a notification configuration row to the item creation form. */
+    $(document).on('click', '.add-new-notification', function handleAddNotificationConfig() {
+        appendNewNotificationConfig();
+        $('#newNotificationConfigs .new-notification-offset').last().trigger('focus');
+    });
+    /** Remove a notification configuration row from the item form. */
+    $(document).on('click', '.remove-new-notification', function handleRemoveNotificationConfig() {
+        $(this).closest('.notification-create-row').remove();
     });
     /** Create the checklist item entered in the modal. */
     $('#addChecklistItem').on('click', async function handleChecklistItemSubmit() {
