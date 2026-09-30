@@ -5,6 +5,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      HOME_URL: ${HOME_URL:-http://localhost:8000}
       ZENHOME_NTFY_TOPIC_PREFIX: ${ZENHOME_NTFY_TOPIC_PREFIX:-ZenHome}
       NTFY_SERVER: ${NTFY_SERVER:-https://ntfy.sh}
       NTFY_TOKEN: ${NTFY_TOKEN:-}

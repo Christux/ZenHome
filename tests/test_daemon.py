@@ -80,12 +80,13 @@ def test_send_notification_uses_public_and_private_topics(test_context, monkeypa
             self.topic = topic
             clients.append((topic, server, auth))
 
-        def send(self, message, title):
-            clients[-1] += (message, title)
+        def send(self, message, title, actions):
+            clients[-1] += (message, title, actions)
 
     monkeypatch.setattr(daemon, "NtfyClient", FakeNtfyClient)
     monkeypatch.setattr(daemon, "NTFY_TOPIC_PREFIX", "ZenHome")
     monkeypatch.setattr(daemon, "NTFY_SERVER", "https://ntfy.example")
+    monkeypatch.setattr(daemon, "HOME_URL", "https://zenhome.example/")
     monkeypatch.setattr(daemon, "NTFY_TOKEN", None)
     monkeypatch.setattr(daemon, "NTFY_USER", None)
     monkeypatch.setattr(daemon, "NTFY_PASSWORD", None)
@@ -126,10 +127,15 @@ def test_send_notification_uses_public_and_private_topics(test_context, monkeypa
             session.flush()
             daemon.send_notification(notification)
 
-    assert clients == [
+    assert [client[:5] for client in clients] == [
         ("zenhome_general", "https://ntfy.example", None, "Prévu le 2030-05-01T10:00:00", "Public"),
         ("zenhome_alice", "https://ntfy.example", None, "Prévu le 2030-05-01T10:00:00", "Privé"),
     ]
+    assert [client[5][0].url for client in clients] == [
+        "https://zenhome.example/item/1",
+        "https://zenhome.example/item/2",
+    ]
+    assert all(client[5][0].label == "Voir l'item" for client in clients)
 
 
 def test_monthly_occurrences_clamp_to_last_day(test_context) -> None:

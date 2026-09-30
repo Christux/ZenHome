@@ -10,13 +10,14 @@ import logging
 import re
 import unicodedata
 
-from python_ntfy import MessageSendError, NtfyClient
+from python_ntfy import MessageSendError, NtfyClient, ViewAction
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .database import SessionLocal
 from .globals import (
     DAEMON_INTERVAL_SECONDS,
+    HOME_URL,
     NTFY_PASSWORD,
     NTFY_SERVER,
     NTFY_TOKEN,
@@ -57,8 +58,9 @@ def send_notification(notification: Notifications) -> None:
         auth = None
     client = NtfyClient(topic=topic, server=NTFY_SERVER, auth=auth)
     client.send(
-        f"Prévu le {notification.schedule_occurrence.starts_at}",
+        message=f"Prévu le {notification.schedule_occurrence.starts_at}",
         title=item.title,
+        actions=[ViewAction(label="Voir l'item", url=f"{HOME_URL.rstrip('/')}/item/{item.id}")],
     )
 
 

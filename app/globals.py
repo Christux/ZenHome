@@ -11,6 +11,7 @@ DATABASE_PATH = DATA_DIR / "zenhome.sqlite3"
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 DAEMON_INTERVAL_SECONDS = int(os.getenv("ZENHOME_DAEMON_INTERVAL_SECONDS", "60"))
 OCCURRENCES_HORIZON_DAYS = 730
+HOME_URL = os.getenv("HOME_URL", "http://localhost:8000").rstrip("/")
 NTFY_TOPIC_PREFIX = os.getenv("ZENHOME_NTFY_TOPIC_PREFIX", "ZenHome")
 NTFY_SERVER = os.getenv("NTFY_SERVER", "https://ntfy.sh")
 NTFY_TOKEN = os.getenv("NTFY_TOKEN") or None
