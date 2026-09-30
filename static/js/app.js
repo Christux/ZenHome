@@ -373,7 +373,7 @@ $(function initializeApp() {
                 ? item.schedules.map(schedule => `<div>${escapeHtml(formatDateTime(schedule.start_at))}${schedule.end_at ? ` – ${escapeHtml(formatDateTime(schedule.end_at))}` : ''}</div>`).join('')
                 : '<div class="text-muted">Aucune échéance planifiée</div>';
             const notifications = item.notification_configs?.length
-                ? item.notification_configs.map(config => `<div>${escapeHtml(config.label || `Rappel ${config.offset_minutes} min avant`)}${config.is_enabled ? '' : ' (désactivé)'}</div>`).join('')
+                ? item.notification_configs.map(config => `<div>${config.label ? `${escapeHtml(config.label)} — ` : ''}Rappel ${config.offset_minutes} min avant${config.is_enabled ? '' : ' (désactivé)'}</div>`).join('')
                 : '<div class="text-muted">Aucun rappel configuré</div>';
             const createdAt = item.created_at ? formatAuditDate(item.created_at) : '—';
             const updatedAt = item.updated_at ? formatAuditDate(item.updated_at) : '—';
