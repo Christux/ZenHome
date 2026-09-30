@@ -8,6 +8,7 @@ from app.models import (
     ItemTypes,
     Items,
     NotificationConfigs,
+    NotificationStatuses,
     Notifications,
     RecurrenceRules,
     RecurrenceTypes,
@@ -47,6 +48,88 @@ def test_occurrence_and_notification_generation_is_idempotent(test_context, monk
         assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 29)) == 0
         assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 1
         assert sent == [notification]
+        assert notification.status.code == "SENT"
+        assert notification.sent_at is not None
+        session.commit()
+        assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 0
+
+        notification.status_id = session.scalar(
+            select(NotificationStatuses.id).where(NotificationStatuses.code == "PENDING")
+        )
+        notification.sent_at = None
+        session.commit()
+
+        def fail_delivery(_notification):
+            raise daemon.MessageSendError("Serveur ntfy indisponible")
+
+        monkeypatch.setattr(daemon, "send_notification", fail_delivery)
+        assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 1
+        assert notification.status_id == session.scalar(
+            select(NotificationStatuses.id).where(NotificationStatuses.code == "FAILED")
+        )
+        assert notification.error_message == "Serveur ntfy indisponible"
+        session.commit()
+        assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 0
+
+
+def test_send_notification_uses_public_and_private_topics(test_context, monkeypatch) -> None:
+    clients = []
+
+    class FakeNtfyClient:
+        def __init__(self, topic, server, auth):
+            self.topic = topic
+            clients.append((topic, server, auth))
+
+        def send(self, message, title):
+            clients[-1] += (message, title)
+
+    monkeypatch.setattr(daemon, "NtfyClient", FakeNtfyClient)
+    monkeypatch.setattr(daemon, "NTFY_TOPIC_PREFIX", "ZenHome")
+    monkeypatch.setattr(daemon, "NTFY_SERVER", "https://ntfy.example")
+    monkeypatch.setattr(daemon, "NTFY_TOKEN", None)
+    monkeypatch.setattr(daemon, "NTFY_USER", None)
+    monkeypatch.setattr(daemon, "NTFY_PASSWORD", None)
+
+    with test_context.session_factory() as session:
+        alice_id = test_context.user_ids["alice"]
+        item_values = (("Public", False), ("Privé", True))
+        for title, is_private in item_values:
+            item = Items(
+                user_id=alice_id,
+                type_id=session.scalar(select(ItemTypes.id).where(ItemTypes.code == "TASK")),
+                status_id=session.scalar(select(ItemStatuses.id).where(ItemStatuses.code == "TODO")),
+                title=title,
+                is_private=is_private,
+            )
+            session.add(item)
+            session.flush()
+            schedule = Schedules(item_id=item.id, start_at="2030-05-01T10:00:00")
+            session.add(schedule)
+            session.flush()
+            occurrence = ScheduleOccurrences(
+                schedule_id=schedule.id,
+                status_id=1,
+                starts_at="2030-05-01T10:00:00",
+            )
+            config = NotificationConfigs(item_id=item.id)
+            session.add_all((occurrence, config))
+            session.flush()
+            notification = Notifications(
+                schedule_occurrence_id=occurrence.id,
+                notification_config_id=config.id,
+                status_id=session.scalar(
+                    select(NotificationStatuses.id).where(NotificationStatuses.code == "PENDING")
+                ),
+                notify_at="2030-05-01T09:30:00",
+            )
+            session.add(notification)
+            session.flush()
+            daemon.send_notification(notification)
+
+    assert clients == [
+        ("zenhome_general", "https://ntfy.example", None, "Prévu le 2030-05-01T10:00:00", "Public"),
+        ("zenhome_alice", "https://ntfy.example", None, "Prévu le 2030-05-01T10:00:00", "Privé"),
+    ]
 
 
 def test_monthly_occurrences_clamp_to_last_day(test_context) -> None:

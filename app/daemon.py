@@ -7,12 +7,23 @@ import calendar
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 import logging
+import re
+import unicodedata
 
+from python_ntfy import MessageSendError, NtfyClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .database import SessionLocal
-from .globals import DAEMON_INTERVAL_SECONDS, OCCURRENCES_HORIZON_DAYS
+from .globals import (
+    DAEMON_INTERVAL_SECONDS,
+    NTFY_PASSWORD,
+    NTFY_SERVER,
+    NTFY_TOKEN,
+    NTFY_TOPIC_PREFIX,
+    NTFY_USER,
+    OCCURRENCES_HORIZON_DAYS,
+)
 from .models import (
     NotificationConfigs,
     NotificationStatuses,
@@ -27,8 +38,34 @@ logger = logging.getLogger(__name__)
 
 
 def send_notification(notification: Notifications) -> None:
-    """Sends a notification to a user or external system."""
-    _ = notification
+    """Sends a notification to the item's public or private ntfy topic."""
+    item = notification.schedule_occurrence.schedule.item
+    if item.is_private:
+        channel = _topic_component(item.user.display_name) or f"user-{item.user_id}"
+    else:
+        channel = "general"
+    topic_prefix = _topic_component(NTFY_TOPIC_PREFIX) or "zenhome"
+    topic = f"{topic_prefix}_{channel}"
+
+    if NTFY_TOKEN:
+        auth = NTFY_TOKEN
+    elif bool(NTFY_USER) != bool(NTFY_PASSWORD):
+        raise ValueError("NTFY_USER et NTFY_PASSWORD doivent être configurés ensemble.")
+    elif NTFY_USER and NTFY_PASSWORD:
+        auth = (NTFY_USER, NTFY_PASSWORD)
+    else:
+        auth = None
+    client = NtfyClient(topic=topic, server=NTFY_SERVER, auth=auth)
+    client.send(
+        f"Prévu le {notification.schedule_occurrence.starts_at}",
+        title=item.title,
+    )
+
+
+def _topic_component(value: str) -> str:
+    """Normalizes a name into a lowercase ntfy topic component."""
+    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii").lower()
+    return re.sub(r"[^a-z0-9_-]+", "_", normalized).strip("_-")
 
 
 def _parse_datetime(value: str) -> datetime:
@@ -199,15 +236,29 @@ def send_due_notifications(session: Session, now: datetime | None = None) -> int
     now = now or datetime.now()
     if now.tzinfo is not None:
         now = now.astimezone().replace(tzinfo=None)
-    pending_status_id = session.scalar(select(NotificationStatuses.id).where(NotificationStatuses.code == "PENDING"))
-    if pending_status_id is None:
+    statuses = dict(session.execute(select(
+        NotificationStatuses.code,
+        NotificationStatuses.id,
+    ).where(NotificationStatuses.code.in_(("PENDING", "SENT", "FAILED")))).all())
+    pending_status_id = statuses.get("PENDING")
+    if pending_status_id is None or statuses.get("SENT") is None or statuses.get("FAILED") is None:
+        logger.warning("Notification statuses PENDING, SENT, or FAILED are missing")
         return 0
     due = session.scalars(select(Notifications).where(
         Notifications.status_id == pending_status_id,
         Notifications.notify_at <= now.isoformat(),
     )).all()
     for notification in due:
-        send_notification(notification)
+        try:
+            send_notification(notification)
+        except (MessageSendError, ValueError) as exc:
+            notification.status_id = statuses["FAILED"]
+            notification.error_message = str(exc)
+            logger.exception("Failed to send notification %s", notification.id)
+        else:
+            notification.status_id = statuses["SENT"]
+            notification.sent_at = datetime.now().isoformat()
+            notification.error_message = None
     return len(due)
 
 

@@ -38,3 +38,9 @@ La commande peut aussi être lancée sans démarrer le serveur :
 ```sh
 docker compose run --rm --no-deps zenhome python -m app.cli create-user "Alice"
 ```
+
+## Notifications ntfy
+
+Les rappels planifiés sont publiés sur le serveur ntfy configuré par `NTFY_SERVER` (par défaut `https://ntfy.sh`). Les items publics utilisent le topic `{préfixe}_general`; les items privés utilisent `{préfixe}_{nom_utilisateur}` à partir de son nom affiché. Le préfixe vaut `ZenHome` par défaut et se configure avec `ZENHOME_NTFY_TOPIC_PREFIX`. Les topics sont normalisés en minuscules.
+
+Pour l'authentification, configurez `NTFY_TOKEN` ou la paire `NTFY_USER` et `NTFY_PASSWORD`. Avec Docker Compose, ces variables de l'environnement hôte sont transmises au conteneur.
