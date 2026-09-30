@@ -8,7 +8,7 @@ notifications.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 import logging
 
@@ -25,7 +25,7 @@ from .web_routes import public_router, router as web_router
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Initialize the app services at startup and shut them down cleanly.
 
     The function configures structured logging, ensures the SQLite schema and demo
