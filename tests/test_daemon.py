@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from sqlalchemy import select
@@ -70,6 +71,24 @@ def test_occurrence_and_notification_generation_is_idempotent(test_context, monk
         assert notification.error_message == "Serveur ntfy indisponible"
         session.commit()
         assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 0
+
+
+def test_daemon_loop_schedules_occurrences_daily_and_notifications_separately(monkeypatch) -> None:
+    scheduled = []
+
+    async def capture_schedule(task, interval_seconds, stop_event):
+        scheduled.append((task, interval_seconds))
+        if len(scheduled) == 2:
+            stop_event.set()
+
+    monkeypatch.setattr(daemon, "_periodic_loop", capture_schedule)
+
+    asyncio.run(daemon.daemon_loop(asyncio.Event()))
+
+    assert scheduled == [
+        (daemon.run_occurrences_once, daemon.OCCURRENCES_INTERVAL_SECONDS),
+        (daemon.run_notifications_once, daemon.NOTIFICATIONS_INTERVAL_SECONDS),
+    ]
 
 
 def test_send_notification_uses_public_and_private_topics(test_context, monkeypatch) -> None:

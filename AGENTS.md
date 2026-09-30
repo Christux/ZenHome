@@ -36,7 +36,7 @@ python -m pytest -q
 
 En développement, `ZENHOME_ENV=development` active notamment les logs SQL et l'endpoint de version de développement. Le service écoute sur le port 8000 par défaut.
 
-L'application crée la base `data/zenhome.sqlite3` par défaut. `ZENHOME_DATA_DIR` permet de changer le répertoire des données et `ZENHOME_DAEMON_INTERVAL_SECONDS` l'intervalle du daemon. Utiliser `docker compose up --build` pour démarrer la version conteneurisée.
+L'application crée la base `data/zenhome.sqlite3` par défaut. `ZENHOME_DATA_DIR` permet de changer le répertoire des données et `ZENHOME_DAEMON_INTERVAL_SECONDS` l'intervalle de vérification des notifications (60 secondes par défaut). Les nouvelles occurrences sont générées quotidiennement. Utiliser `docker compose up --build` pour démarrer la version conteneurisée.
 
 Les commandes de gestion des utilisateurs sont exécutées depuis la racine du projet :
 

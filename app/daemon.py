@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import calendar
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import date, datetime, time, timedelta
 import logging
 import re
@@ -16,13 +16,14 @@ from sqlalchemy.orm import Session
 
 from .database import SessionLocal
 from .globals import (
-    DAEMON_INTERVAL_SECONDS,
     HOME_URL,
     NTFY_PASSWORD,
     NTFY_SERVER,
     NTFY_TOKEN,
     NTFY_TOPIC_PREFIX,
     NTFY_USER,
+    NOTIFICATIONS_INTERVAL_SECONDS,
+    OCCURRENCES_INTERVAL_SECONDS,
     OCCURRENCES_HORIZON_DAYS,
 )
 from .models import (
@@ -264,28 +265,54 @@ def send_due_notifications(session: Session, now: datetime | None = None) -> int
     return len(due)
 
 
-def run_daemon_once() -> None:
-    """Runs a complete daemon cycle in its own session."""
+def run_occurrences_once() -> None:
+    """Creates missing occurrences in its own session."""
     session = SessionLocal()
     try:
         occurrences = create_occurrences(session)
-        notifications = create_notifications(session)
-        due = send_due_notifications(session)
         session.commit()
-        if occurrences or notifications or due:
-            logger.info("Daemon: %s occurrences, %s notifications created, %s pending delivery", occurrences, notifications, due)
+        if occurrences:
+            logger.info("Daemon: %s occurrences created", occurrences)
     except Exception:
         session.rollback()
-        logger.exception("Error during daemon cycle")
+        logger.exception("Error creating occurrences")
     finally:
         session.close()
 
 
-async def daemon_loop(stop_event: asyncio.Event) -> None:
-    """Runs the daemon periodically until the application stops."""
+def run_notifications_once() -> None:
+    """Creates and sends due notifications in its own session."""
+    session = SessionLocal()
+    try:
+        notifications = create_notifications(session)
+        due = send_due_notifications(session)
+        session.commit()
+        if notifications or due:
+            logger.info("Daemon: %s notifications created, %s pending delivery", notifications, due)
+    except Exception:
+        session.rollback()
+        logger.exception("Error processing notifications")
+    finally:
+        session.close()
+
+
+async def _periodic_loop(
+    task: Callable[[], None],
+    interval_seconds: int,
+    stop_event: asyncio.Event,
+) -> None:
+    """Runs a synchronous daemon task periodically until shutdown."""
     while not stop_event.is_set():
-        await asyncio.to_thread(run_daemon_once)
+        await asyncio.to_thread(task)
         try:
-            await asyncio.wait_for(stop_event.wait(), timeout=DAEMON_INTERVAL_SECONDS)
+            await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
         except asyncio.TimeoutError:
             continue
+
+
+async def daemon_loop(stop_event: asyncio.Event) -> None:
+    """Runs occurrence generation daily and notification processing each minute."""
+    await asyncio.gather(
+        _periodic_loop(run_occurrences_once, OCCURRENCES_INTERVAL_SECONDS, stop_event),
+        _periodic_loop(run_notifications_once, NOTIFICATIONS_INTERVAL_SECONDS, stop_event),
+    )
