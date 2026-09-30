@@ -67,6 +67,7 @@ CREATE TABLE items (
     content     TEXT,
     is_favorite INTEGER NOT NULL DEFAULT 0 CHECK (is_favorite IN (0, 1)),
     is_archived INTEGER NOT NULL DEFAULT 0 CHECK (is_archived IN (0, 1)),
+    is_private  INTEGER NOT NULL DEFAULT 0 CHECK (is_private IN (0, 1)),
 
     created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

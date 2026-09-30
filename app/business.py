@@ -24,6 +24,7 @@ class ItemUpdate(BaseModel):
 
     title: str | None = Field(default=None, min_length=1, max_length=250)
     content: str | None = None
+    is_private: bool = False
     notification_configs: list[NotificationConfigInput] | None = None
 
 
@@ -40,6 +41,7 @@ class ItemCreate(BaseModel):
 
     title: str = Field(min_length=1, max_length=250)
     content: str | None = None
+    is_private: bool = False
     type_code: Literal["NOTE", "CHECKLIST", "TASK"] = "NOTE"
     status_code: Literal["TODO", "IN_PROGRESS", "DONE", "CANCELLED"] = "TODO"
     checklist_items: list[ChecklistInput] = Field(default_factory=list)

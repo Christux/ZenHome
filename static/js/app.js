@@ -192,12 +192,13 @@ $(function initializeApp() {
     /** @param {Item} item Item to render. @returns {JQuery} The item card. */
     function itemCard(item) {
         const content = item.content ? `<div class="item-content">${escapeHtml(item.content)}</div>` : '';
-        const deleteButton = '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>';
+        const deleteButton = item.is_owner ? '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>' : '';
+        const privateIcon = item.is_private ? '<i class="bi bi-lock-fill ms-1" title="Privé" aria-label="Privé"></i>' : '';
         const card = $(
             `<div class="card item-card item-openable" data-item-id="${item.id}" data-item-type="${item.type_code}" data-item-status="${item.status_code}" role="group" aria-label="Ouvrir l’élément : ${escapeHtml(item.title)}" tabindex="0">
                 <div class="card-body"><div class="d-flex justify-content-between">
                     <div class="flex-grow-1"><span class="type-badge ${typeClass[item.type_code]}">${item.type_code}</span>
-                    <div class="item-title mt-2">${escapeHtml(item.title)}</div>${content}</div>
+                    <div class="item-title mt-2">${escapeHtml(item.title)}${privateIcon}</div>${content}</div>
                     <div class="edit-actions"><button class="btn btn-sm btn-light edit-item" title="Modifier"><i class="bi bi-pencil"></i></button>${deleteButton}</div>
                 </div></div>
             </div>`
@@ -346,7 +347,7 @@ $(function initializeApp() {
         }).join('');
         const card = $(`<div class="card item-card checklist-card item-openable" data-item-id="${item.id}" data-item-type="CHECKLIST" data-item-status="${item.status_code || ''}" role="group" aria-label="Ouvrir l’élément : ${escapeHtml(item.title)}" tabindex="0"><div class="card-body">
             <div class="d-flex justify-content-between align-items-start"><div><span class="type-badge badge-checklist">CHECKLIST</span>
-            <div class="item-title mt-2">${escapeHtml(item.title)}</div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button><button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button></div></div>
+            <div class="item-title mt-2">${escapeHtml(item.title)}${item.is_private ? '<i class="bi bi-lock-fill ms-1" title="Privé" aria-label="Privé"></i>' : ''}</div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button>${item.is_owner ? '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>' : ''}</div></div>
             <div class="check-items mt-3">${rows}</div><div class="check-edit mt-3 gap-2"><button class="btn btn-sm btn-outline-secondary add-check"><i class="bi bi-plus"></i> Ajouter une case</button><button class="btn btn-sm btn-outline-secondary reset-checklist"><i class="bi bi-arrow-counterclockwise"></i> Réinitialiser</button></div>
             <div class="progress mt-3" style="height:5px;"><div class="progress-bar"></div></div></div></div>`);
         card.data('item', item);
@@ -679,6 +680,8 @@ $(function initializeApp() {
         const todayValue = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
         updateCreateModalFields();
         $('#newTitle, #newContent').val('');
+        $('#itemPrivacyField').removeClass('d-none');
+        $('#newIsPrivate').prop('checked', false);
         $('#newDate').val(todayValue);
         $('#newTime').val('09:00');
         $('#newRecurrence').val('');
@@ -806,6 +809,8 @@ $(function initializeApp() {
         $('#itemTypeCreateField').addClass('d-none');
         $('#newTitle').val(item.title || '');
         $('#newContent').val(item.content || '');
+        $('#itemPrivacyField').toggleClass('d-none', !details.is_owner);
+        $('#newIsPrivate').prop('checked', details.is_private);
         $('#newDate').val(schedule?.start_at?.slice(0, 10) || '');
         $('#newTime').val(schedule?.start_at?.slice(11, 16) || '09:00');
         $('#newRecurrence').val(schedule?.recurrence_rule_id || '');
@@ -824,9 +829,15 @@ $(function initializeApp() {
         if ($('#newDate').val() && !$('#newTime').val()) return $('#newTime').trigger('focus');
         try {
             if (editingItem) {
+                const updatePayload = {
+                    title,
+                    content: $('#newContent').val().trim() || null,
+                    notification_configs: notificationConfigs
+                };
+                if (editingItem.is_owner) updatePayload.is_private = $('#newIsPrivate').is(':checked');
                 await api(`/api/items/${editingItem.id}`, {
                     method: 'PATCH',
-                    data: { title, content: $('#newContent').val().trim() || null, notification_configs: notificationConfigs }
+                    data: updatePayload
                 });
                 const schedules = await api(`/api/items/${editingItem.id}/schedules`);
                 /** Delete one existing schedule before replacing it. */
@@ -853,6 +864,7 @@ $(function initializeApp() {
                 data: {
                     title,
                     content: $('#newContent').val().trim() || null,
+                    is_private: $('#newIsPrivate').is(':checked'),
                     type_code: createItemType,
                     checklist_items: createItemType === 'CHECKLIST' ? readNewChecklistItems() : [],
                     notification_configs: notificationConfigs

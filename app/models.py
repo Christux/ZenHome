@@ -94,6 +94,7 @@ class Items(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('0'))
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('0'))
+    is_private: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('0'))
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     updated_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     id: Mapped[Optional[int]] = mapped_column(Integer, primary_key=True)

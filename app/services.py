@@ -63,6 +63,17 @@ def require(session: Session, model: type, entity_id: int, label: str) -> object
     return instance
 
 
+def require_accessible_item(session: Session, user_id: int, item_id: int, label: str = "Item") -> Items:
+    """Return an item owned by the user or shared with them."""
+    item = session.scalar(select(Items).where(
+        Items.id == item_id,
+        (Items.user_id == user_id) | (Items.is_private.is_(False)),
+    ))
+    if item is None:
+        raise ServiceError(404, f"{label} not found.")
+    return item
+
+
 def require_owned_item(session: Session, user_id: int, item_id: int, label: str = "Item") -> Items:
     """Return an item owned by the user or raise a not-found service error."""
     item = session.scalar(select(Items).where(Items.id == item_id, Items.user_id == user_id))
@@ -79,7 +90,7 @@ def dictionary_id(session: Session, model: type, code: str) -> int:
     return instance.id
 
 
-def serialize_item(item: Items) -> dict[str, Any]:
+def serialize_item(item: Items, user_id: int) -> dict[str, Any]:
     """Build the public representation of an item and its metadata."""
     return {
         "id": item.id,
@@ -87,6 +98,8 @@ def serialize_item(item: Items) -> dict[str, Any]:
         "content": item.content,
         "is_favorite": item.is_favorite,
         "is_archived": item.is_archived,
+        "is_private": item.is_private,
+        "is_owner": item.user_id == user_id,
         "created_at": item.created_at,
         "updated_at": item.updated_at,
         "type_code": item.type.code,
@@ -103,13 +116,15 @@ def list_items(
     include_archived: bool = False,
 ) -> list[dict[str, Any]]:
     """List a user's items with optional type and archive filters."""
-    query = select(Items).join(Items.type).where(Items.user_id == user_id)
+    query = select(Items).join(Items.type).where(
+        (Items.user_id == user_id) | (Items.is_private.is_(False))
+    )
     if item_type:
         query = query.where(ItemTypes.code == item_type)
     if not include_archived:
         query = query.where(Items.is_archived.is_(False))
     items = session.scalars(query.order_by(Items.created_at.desc(), Items.id.desc())).all()
-    return [serialize_item(item) for item in items]
+    return [serialize_item(item, user_id) for item in items]
 
 
 def create_item(user_id: int, payload: ItemCreate, session: Session) -> dict[str, Any]:
@@ -126,6 +141,7 @@ def create_item(user_id: int, payload: ItemCreate, session: Session) -> dict[str
         status_id=item_status.id,
         title=payload.title.strip(),
         content=payload.content,
+        is_private=payload.is_private,
     )
     session.add(item)
     session.flush()
@@ -143,20 +159,14 @@ def create_item(user_id: int, payload: ItemCreate, session: Session) -> dict[str
             offset_minutes=notification_config.offset_minutes,
             is_enabled=notification_config.is_enabled,
         ))
-    return fetch_item(item.id, session)
-
-
-def fetch_item(item_id: int, session: Session) -> dict[str, Any]:
-    """Fetch and serialize an item, raising an error when it is missing."""
-    item = session.scalar(select(Items).where(Items.id == item_id))
-    if item is None:
-        raise ServiceError(404, "Item not found.")
-    return serialize_item(item)
+    return serialize_item(item, user_id)
 
 
 def update_item(user_id: int, item_id: int, payload: ItemUpdate, session: Session) -> dict[str, Any]:
-    """Update editable fields on an item owned by the user."""
-    item = require_owned_item(session, user_id, item_id)
+    """Update an accessible item, restricting privacy changes to its owner."""
+    item = require_accessible_item(session, user_id, item_id)
+    if "is_private" in payload.model_fields_set and item.user_id != user_id:
+        raise ServiceError(403, "Only the item creator can change its privacy.")
     values = payload.model_dump(exclude_unset=True, exclude={"notification_configs"})
     configs_to_replace = payload.notification_configs if "notification_configs" in payload.model_fields_set else None
     for field, value in values.items():
@@ -173,7 +183,7 @@ def update_item(user_id: int, item_id: int, payload: ItemUpdate, session: Sessio
                 is_enabled=notification_config.is_enabled,
             ))
     item.updated_at = _utc_now_iso()
-    return serialize_item(item)
+    return serialize_item(item, user_id)
 
 
 def delete_item(user_id: int, item_id: int, session: Session) -> None:
@@ -195,7 +205,7 @@ def delete_item(user_id: int, item_id: int, session: Session) -> None:
 
 def update_item_status(user_id: int, item_id: int, payload: ItemStatusUpdate, session: Session) -> dict[str, Any]:
     """Set the status of an item owned by the user."""
-    item = session.scalar(select(Items).where(Items.id == item_id, Items.user_id == user_id))
+    item = require_accessible_item(session, user_id, item_id)
     new_status = session.scalar(select(ItemStatuses).where(ItemStatuses.code == payload.status_code, ItemStatuses.is_active.is_(True)))
     if new_status is None:
         raise ServiceError(400, "Invalid status.")
@@ -203,7 +213,7 @@ def update_item_status(user_id: int, item_id: int, payload: ItemStatusUpdate, se
         raise ServiceError(404, "Item not found.")
     item.status_id = new_status.id
     item.updated_at = _utc_now_iso()
-    return serialize_item(item)
+    return serialize_item(item, user_id)
 
 
 def dashboard(user_id: int, session: Session) -> dict[str, Any]:
@@ -218,7 +228,7 @@ def dashboard(user_id: int, session: Session) -> dict[str, Any]:
         .join(Items.user)
         .join(Items.status)
         .join(Items.type)
-        .where(Items.user_id == user_id, Items.is_archived.is_(False))
+        .where(((Items.user_id == user_id) | (Items.is_private.is_(False))), Items.is_archived.is_(False))
     ).mappings().one()
     today_count = session.scalar(
         select(count(ScheduleOccurrences.id))
@@ -227,7 +237,7 @@ def dashboard(user_id: int, session: Session) -> dict[str, Any]:
         .join(Items.user)
         .join(ScheduleOccurrences.status)
         .where(
-            Items.user_id == user_id,
+            (Items.user_id == user_id) | (Items.is_private.is_(False)),
             Items.is_archived.is_(False),
             OccurrenceStatuses.code == "PENDING",
             func.date(ScheduleOccurrences.starts_at) == func.date("now"),
@@ -246,7 +256,7 @@ def dashboard(user_id: int, session: Session) -> dict[str, Any]:
         .join(Items.type)
         .join(Items.user)
         .join(ScheduleOccurrences.status)
-        .where(Items.user_id == user_id, Items.is_archived.is_(False), OccurrenceStatuses.code == "PENDING")
+        .where(((Items.user_id == user_id) | (Items.is_private.is_(False))), Items.is_archived.is_(False), OccurrenceStatuses.code == "PENDING")
         .where(ScheduleOccurrences.starts_at >= func.datetime("now"))
         .order_by(ScheduleOccurrences.starts_at)
         .limit(10)
@@ -275,9 +285,9 @@ def dictionaries(name: str, session: Session) -> list[dict[str, Any]]:
 
 def item_detail(user_id: int, item_id: int, session: Session) -> dict[str, Any]:
     """Return an owned item with its checklist, schedules, and notifications."""
-    item = require_owned_item(session, user_id, item_id)
+    item = require_accessible_item(session, user_id, item_id)
     result = as_dict(item)
-    result.update(serialize_item(item))
+    result.update(serialize_item(item, user_id))
     result["checklist_items"] = [as_dict(row) for row in sorted(item.checklist_items, key=lambda row: (row.position, row.id))]
     result["schedules"] = [as_dict(row) for row in sorted(item.schedules, key=lambda row: row.start_at)]
     result["notification_configs"] = [as_dict(row) for row in item.notification_configs]
@@ -286,7 +296,7 @@ def item_detail(user_id: int, item_id: int, session: Session) -> dict[str, Any]:
 
 def add_checklist_item(user_id: int, item_id: int, body: ChecklistInput, session: Session) -> dict[str, Any]:
     """Add a checklist row to an item owned by the user."""
-    require_owned_item(session, user_id, item_id)
+    require_accessible_item(session, user_id, item_id)
     position = body.position
     if position is None:
         position = session.scalar(select(func.coalesce(func.max(ChecklistItems.position), -1) + 1).where(ChecklistItems.item_id == item_id)) or 0
@@ -297,8 +307,8 @@ def add_checklist_item(user_id: int, item_id: int, body: ChecklistInput, session
 
 
 def reset_checklist(user_id: int, item_id: int, session: Session) -> dict[str, int]:
-    """Clear checked states from every row in an owned checklist."""
-    item = require_owned_item(session, user_id, item_id, "Checklist")
+    """Clear checked states from every row in an accessible checklist."""
+    item = require_accessible_item(session, user_id, item_id, "Checklist")
     reset_count = 0
     for row in item.checklist_items:
         if row.is_checked or row.checked_at is not None:
@@ -311,7 +321,7 @@ def reset_checklist(user_id: int, item_id: int, session: Session) -> dict[str, i
 def edit_checklist_item(user_id: int, checklist_item_id: int, body: ChecklistInput, session: Session) -> dict[str, Any]:
     """Update a checklist row after verifying ownership of its parent item."""
     row = require(session, ChecklistItems, checklist_item_id, "Checklist row")
-    require_owned_item(session, user_id, row.item_id, "Checklist row")
+    require_accessible_item(session, user_id, row.item_id, "Checklist row")
     row.label = body.label
     if body.position is not None:
         row.position = body.position
@@ -324,7 +334,7 @@ def edit_checklist_item(user_id: int, checklist_item_id: int, body: ChecklistInp
 def delete_checklist_item(user_id: int, checklist_item_id: int, session: Session) -> None:
     """Delete a checklist row belonging to the user."""
     row = require(session, ChecklistItems, checklist_item_id, "Checklist row")
-    require_owned_item(session, user_id, row.item_id, "Checklist row")
+    require_accessible_item(session, user_id, row.item_id, "Checklist row")
     session.delete(row)
 
 
@@ -361,14 +371,14 @@ def delete_rule(rule_id: int, session: Session) -> None:
 
 def schedules(user_id: int, item_id: int, session: Session) -> list[dict[str, Any]]:
     """List schedules attached to an item owned by the user."""
-    item = require_owned_item(session, user_id, item_id)
+    item = require_accessible_item(session, user_id, item_id)
     return [{**as_dict(row), "recurrence_label": row.recurrence_rule.label if row.recurrence_rule else None}
             for row in sorted(item.schedules, key=lambda row: row.start_at)]
 
 
 def add_schedule(user_id: int, item_id: int, body: ScheduleInput, session: Session) -> dict[str, Any]:
     """Add a schedule to an owned item and generate its occurrences."""
-    require_owned_item(session, user_id, item_id)
+    require_accessible_item(session, user_id, item_id)
     if body.recurrence_rule_id is not None:
         require(session, RecurrenceRules, body.recurrence_rule_id, "Recurrence rule")
     row = Schedules(item_id=item_id, recurrence_rule_id=body.recurrence_rule_id, start_at=body.start_at, end_at=body.end_at, is_active=body.is_active)
@@ -381,7 +391,7 @@ def add_schedule(user_id: int, item_id: int, body: ScheduleInput, session: Sessi
 def delete_schedule(user_id: int, schedule_id: int, session: Session) -> None:
     """Delete a schedule after checking ownership of its item."""
     schedule = require(session, Schedules, schedule_id, "Schedule")
-    require_owned_item(session, user_id, schedule.item_id, "Schedule")
+    require_accessible_item(session, user_id, schedule.item_id, "Schedule")
     session.delete(schedule)
 
 
@@ -394,7 +404,7 @@ def occurrences(user_id: int, start_at: str | None, end_at: str | None, session:
         ItemTypes.code.label("type_code"),
         OccurrenceStatuses.code.label("status_code"),
     ).join(ScheduleOccurrences.schedule).join(Schedules.item).join(Items.type).join(ScheduleOccurrences.status)
-    query = query.where(Items.user_id == user_id)
+    query = query.where((Items.user_id == user_id) | (Items.is_private.is_(False)))
     if start_at:
         query = query.where(ScheduleOccurrences.starts_at >= start_at)
     if end_at:
@@ -412,7 +422,7 @@ def occurrences(user_id: int, start_at: str | None, end_at: str | None, session:
 def update_occurrence(user_id: int, occurrence_id: int, body: StatusInput, session: Session) -> dict[str, Any]:
     """Update an occurrence's status and completion timestamp."""
     row = require(session, ScheduleOccurrences, occurrence_id, "Occurrence")
-    require_owned_item(session, user_id, row.schedule.item_id, "Occurrence")
+    require_accessible_item(session, user_id, row.schedule.item_id, "Occurrence")
     row.status_id = dictionary_id(session, OccurrenceStatuses, body.code)
     row.completed_at = _utc_now_iso() if body.code == "COMPLETED" else None
     return as_dict(row)
@@ -420,13 +430,13 @@ def update_occurrence(user_id: int, occurrence_id: int, body: StatusInput, sessi
 
 def notification_configs(user_id: int, item_id: int, session: Session) -> list[dict[str, Any]]:
     """List notification configurations for an item owned by the user."""
-    item = require_owned_item(session, user_id, item_id)
+    item = require_accessible_item(session, user_id, item_id)
     return [as_dict(row) for row in item.notification_configs]
 
 
 def add_notification_config(user_id: int, item_id: int, body: NotificationConfigInput, session: Session) -> dict[str, Any]:
     """Create a notification configuration for an owned item."""
-    require_owned_item(session, user_id, item_id)
+    require_accessible_item(session, user_id, item_id)
     row = NotificationConfigs(item_id=item_id, label=body.label, offset_minutes=body.offset_minutes, is_enabled=body.is_enabled)
     session.add(row)
     session.flush()
@@ -437,7 +447,7 @@ def notifications(user_id: int, status_code: str | None, session: Session) -> li
     """List the user's notifications, optionally filtered by status."""
     query = select(Notifications, Items.title.label("item_title"), NotificationStatuses.code.label("status_code")) \
         .join(Notifications.status).join(Notifications.schedule_occurrence).join(ScheduleOccurrences.schedule).join(Schedules.item)
-    query = query.where(Items.user_id == user_id)
+    query = query.where((Items.user_id == user_id) | (Items.is_private.is_(False)))
     if status_code:
         query = query.where(NotificationStatuses.code == status_code)
     rows = session.execute(query.order_by(Notifications.notify_at)).all()
@@ -447,7 +457,7 @@ def notifications(user_id: int, status_code: str | None, session: Session) -> li
 def update_notification(user_id: int, notification_id: int, body: StatusInput, session: Session) -> dict[str, Any]:
     """Update a notification's status and delivery details."""
     row = require(session, Notifications, notification_id, "Notification")
-    require_owned_item(session, user_id, row.schedule_occurrence.schedule.item_id, "Notification")
+    require_accessible_item(session, user_id, row.schedule_occurrence.schedule.item_id, "Notification")
     row.status_id = dictionary_id(session, NotificationStatuses, body.code)
     row.sent_at = _utc_now_iso() if body.code == "SENT" else None
     row.error_message = body.error_message

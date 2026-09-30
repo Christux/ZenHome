@@ -21,7 +21,9 @@ def test_item_crud_filters_and_user_isolation(client, test_context) -> None:
         "/api/items", headers=auth(), json={"title": "  Mon idée  ", "content": "Texte"}
     )
     bob_item = client.post(
-        "/api/items", headers=auth("bob-test-token"), json={"title": "Privé", "type_code": "TASK"}
+        "/api/items", headers=auth("bob-test-token"), json={
+            "title": "Privé", "type_code": "TASK", "is_private": True,
+        }
     )
     assert alice_item.status_code == bob_item.status_code == 201
     assert alice_item.json()["title"] == "Mon idée"
@@ -51,6 +53,41 @@ def test_item_crud_filters_and_user_isolation(client, test_context) -> None:
 
     assert client.delete(f"/api/items/{alice_item.json()['id']}", headers=auth()).status_code == 204
     assert client.get(f"/api/items/{alice_item.json()['id']}/detail", headers=auth()).status_code == 404
+
+
+def test_shared_and_private_items_access(client) -> None:
+    shared = client.post("/api/items", headers=auth(), json={"title": "Partagé"}).json()
+    shared_checklist = client.post("/api/items", headers=auth(), json={
+        "title": "Checklist partagée", "type_code": "CHECKLIST",
+        "checklist_items": [{"label": "Case cochée", "is_checked": True}],
+    }).json()
+    private = client.post("/api/items", headers=auth(), json={
+        "title": "Privé", "type_code": "CHECKLIST", "is_private": True,
+        "checklist_items": [{"label": "Ligne"}],
+    }).json()
+    bob_headers = auth("bob-test-token")
+
+    bob_items = client.get("/api/items", headers=bob_headers).json()
+    assert {item["title"] for item in bob_items} == {"Partagé", "Checklist partagée"}
+    assert client.get(f"/api/items/{shared['id']}/detail", headers=bob_headers).status_code == 200
+    assert client.patch(f"/api/items/{shared['id']}", headers=bob_headers, json={
+        "title": "Modifié par Bob",
+    }).json()["title"] == "Modifié par Bob"
+    assert client.post(
+        f"/api/items/{shared_checklist['id']}/checklist-items/reset", headers=bob_headers,
+    ).json()["reset_count"] == 1
+    assert client.get(f"/api/items/{private['id']}/detail", headers=bob_headers).status_code == 404
+    assert client.patch(f"/api/items/{private['id']}", headers=bob_headers, json={
+        "title": "Accès interdit",
+    }).status_code == 404
+    assert client.patch(f"/api/items/{shared['id']}", headers=bob_headers, json={
+        "is_private": True,
+    }).status_code == 403
+
+    assert client.patch(f"/api/items/{shared['id']}", headers=auth(), json={
+        "is_private": True,
+    }).json()["is_private"] is True
+    assert all(item["id"] != shared["id"] for item in client.get("/api/items", headers=bob_headers).json())
 
 
 def test_checklist_creation_edit_reset_and_delete(client) -> None:
@@ -172,7 +209,7 @@ def test_schedule_occurrence_and_notification_lifecycle(client, test_context) ->
     assert client.delete(f"/api/schedules/{schedule.json()['id']}", headers=auth()).status_code == 204
 
 
-def test_dashboard_counts_only_current_users_items(client) -> None:
+def test_dashboard_counts_shared_but_not_private_items(client) -> None:
     for payload in (
         {"title": "Ouverte", "type_code": "TASK"},
         {"title": "Terminée", "type_code": "TASK", "status_code": "DONE"},
@@ -182,9 +219,12 @@ def test_dashboard_counts_only_current_users_items(client) -> None:
     client.post("/api/items", headers=auth("bob-test-token"), json={
         "title": "Tâche Bob", "type_code": "TASK",
     })
+    client.post("/api/items", headers=auth("bob-test-token"), json={
+        "title": "Tâche privée Bob", "type_code": "TASK", "is_private": True,
+    })
 
     counts = client.get("/api/dashboard", headers=auth()).json()["counts"]
-    assert counts["tasks_total"] == 2
+    assert counts["tasks_total"] == 3
     assert counts["tasks_done"] == 1
     assert counts["checklists_open"] == 1
     assert counts["today"] == 0

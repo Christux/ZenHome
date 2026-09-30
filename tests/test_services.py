@@ -4,12 +4,12 @@ from app.business import ItemCreate, ItemUpdate
 from app.services import ServiceError, create_item, list_items, update_item
 
 
-def test_item_services_scope_reads_and_writes_to_the_owner(test_context) -> None:
-    """Ensure item services enforce ownership for reads and writes."""
+def test_item_services_scope_private_reads_and_writes_to_the_owner(test_context) -> None:
+    """Ensure private item services enforce ownership for reads and writes."""
     with test_context.session_factory() as session:
         item = create_item(
             test_context.user_ids["alice"],
-            ItemCreate(title="  Service isolé  "),
+            ItemCreate(title="  Service isolé  ", is_private=True),
             session,
         )
         session.commit()
