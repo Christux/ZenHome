@@ -13,6 +13,7 @@ services:
       NTFY_PASSWORD: ${NTFY_PASSWORD:-}
     volumes:
       - ./data:/app/data
+      - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
     stop_grace_period: 40s
     healthcheck:

@@ -231,6 +231,26 @@ def test_schedule_occurrence_and_notification_lifecycle(client, test_context) ->
     assert client.delete(f"/api/schedules/{schedule.json()['id']}", headers=auth()).status_code == 204
 
 
+def test_new_item_schedule_creates_configured_notification(client) -> None:
+    schedule_start = (datetime.now() + timedelta(days=1)).replace(
+        hour=20, minute=0, second=0, microsecond=0
+    )
+    item = client.post("/api/items", headers=auth(), json={
+        "title": "Nouvel item",
+        "type_code": "TASK",
+        "notification_configs": [{"offset_minutes": 15}],
+    }).json()
+
+    schedule = client.post(f"/api/items/{item['id']}/schedules", headers=auth(), json={
+        "start_at": schedule_start.isoformat(),
+    })
+
+    assert schedule.status_code == 201
+    notifications = client.get("/api/notifications?status_code=PENDING", headers=auth()).json()
+    notification = next(row for row in notifications if row["item_title"] == "Nouvel item")
+    assert notification["notify_at"] == f"{schedule_start.date().isoformat()}T19:45:00"
+
+
 def test_dashboard_counts_shared_but_not_private_items(client) -> None:
     for payload in (
         {"title": "Ouverte", "type_code": "TASK"},
