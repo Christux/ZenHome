@@ -254,7 +254,7 @@ def send_due_notifications(session: Session, now: datetime | None = None) -> int
     for notification in due:
         try:
             send_notification(notification)
-        except (MessageSendError, ValueError) as exc:
+        except Exception as exc:
             notification.status_id = statuses["FAILED"]
             notification.error_message = str(exc)
             logger.exception("Failed to send notification %s", notification.id)

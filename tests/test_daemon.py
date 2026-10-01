@@ -18,7 +18,7 @@ from app.models import (
 )
 
 
-def test_occurrence_and_notification_generation_is_idempotent(test_context, monkeypatch) -> None:
+def test_occurrence_and_notification_generation_is_idempotent(test_context, monkeypatch, caplog) -> None:
     with test_context.session_factory() as session:
         user_id = test_context.user_ids["alice"]
         item = Items(
@@ -71,6 +71,22 @@ def test_occurrence_and_notification_generation_is_idempotent(test_context, monk
         assert notification.error_message == "Serveur ntfy indisponible"
         session.commit()
         assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 0
+
+        notification.status_id = session.scalar(
+            select(NotificationStatuses.id).where(NotificationStatuses.code == "PENDING")
+        )
+        session.commit()
+
+        def fail_unexpectedly(_notification):
+            raise RuntimeError("Erreur inattendue du client ntfy")
+
+        monkeypatch.setattr(daemon, "send_notification", fail_unexpectedly)
+        assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 1
+        assert notification.status_id == session.scalar(
+            select(NotificationStatuses.id).where(NotificationStatuses.code == "FAILED")
+        )
+        assert notification.error_message == "Erreur inattendue du client ntfy"
+        assert "Failed to send notification" in caplog.text
 
 
 def test_daemon_loop_schedules_occurrences_daily_and_notifications_separately(monkeypatch) -> None:
