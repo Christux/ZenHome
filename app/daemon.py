@@ -58,9 +58,13 @@ def send_notification(notification: Notifications) -> None:
     else:
         auth = None
     client = NtfyClient(topic=topic, server=NTFY_SERVER, auth=auth)
+    starts_at = _parse_datetime(notification.schedule_occurrence.starts_at)
+    message = f"Prévu le {starts_at.strftime('%d/%m/%Y à %H:%M')}"
+    if item.content:
+        message = f"{item.content}\n\n{message}"
     client.send(
-        message=f"Prévu le {notification.schedule_occurrence.starts_at}",
-        title=item.title,
+        message=message,
+        title=notification.notification_config.label or item.title,
         actions=[ViewAction(label="Voir l'item", url=f"{HOME_URL.rstrip('/')}/item/{item.id}")],
     )
 
@@ -254,6 +258,10 @@ def send_due_notifications(session: Session, now: datetime | None = None) -> int
     for notification in due:
         try:
             send_notification(notification)
+        except MessageSendError as exc:
+            notification.status_id = statuses["FAILED"]
+            notification.error_message = str(exc)
+            logger.exception("ntfy failed to send notification %s", notification.id)
         except Exception as exc:
             notification.status_id = statuses["FAILED"]
             notification.error_message = str(exc)

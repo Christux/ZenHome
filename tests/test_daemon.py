@@ -128,14 +128,15 @@ def test_send_notification_uses_public_and_private_topics(test_context, monkeypa
 
     with test_context.session_factory() as session:
         alice_id = test_context.user_ids["alice"]
-        item_values = (("Public", False), ("Privé", True))
-        for title, is_private in item_values:
+        item_values = (("Public", False, "Échéance", "Apporter les documents"), ("Privé", True, None, None))
+        for title, is_private, config_label, content in item_values:
             item = Items(
                 user_id=alice_id,
                 type_id=session.scalar(select(ItemTypes.id).where(ItemTypes.code == "TASK")),
                 status_id=session.scalar(select(ItemStatuses.id).where(ItemStatuses.code == "TODO")),
                 title=title,
                 is_private=is_private,
+                content=content,
             )
             session.add(item)
             session.flush()
@@ -147,7 +148,7 @@ def test_send_notification_uses_public_and_private_topics(test_context, monkeypa
                 status_id=1,
                 starts_at="2030-05-01T10:00:00",
             )
-            config = NotificationConfigs(item_id=item.id)
+            config = NotificationConfigs(item_id=item.id, label=config_label)
             session.add_all((occurrence, config))
             session.flush()
             notification = Notifications(
@@ -163,8 +164,8 @@ def test_send_notification_uses_public_and_private_topics(test_context, monkeypa
             daemon.send_notification(notification)
 
     assert [client[:5] for client in clients] == [
-        ("zenhome_general", "https://ntfy.example", None, "Prévu le 2030-05-01T10:00:00", "Public"),
-        ("zenhome_alice", "https://ntfy.example", None, "Prévu le 2030-05-01T10:00:00", "Privé"),
+        ("zenhome_general", "https://ntfy.example", None, "Apporter les documents\n\nPrévu le 01/05/2030 à 10:00", "Échéance"),
+        ("zenhome_alice", "https://ntfy.example", None, "Prévu le 01/05/2030 à 10:00", "Privé"),
     ]
     assert [client[5][0].url for client in clients] == [
         "https://zenhome.example/item/1",
