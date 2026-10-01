@@ -111,8 +111,8 @@ $(function initializeApp() {
         return request;
     };
 
-    /** @param {string|null|undefined} value @returns {string} Escaped HTML text. */
-    const escapeHtml = (value = '') => $('<div>').text(value).html();
+    /** Clone the root element from an HTML template. */
+    const cloneTemplate = id => $(document.getElementById(id).content.firstElementChild.cloneNode(true));
     const typeClass = { NOTE: 'badge-note', CHECKLIST: 'badge-checklist', TASK: 'badge-task' };
     const calendarTypeClass = { NOTE: 'note', CHECKLIST: 'checklist', TASK: 'task' };
     const statusLabel = { TODO: 'À faire', IN_PROGRESS: 'En cours', DONE: 'Terminée', CANCELLED: 'Annulée' };
@@ -168,7 +168,7 @@ $(function initializeApp() {
 
         page.find('.search-empty').remove();
         if (query && cards.length && matches === 0) {
-            page.append('<div class="search-empty">Aucun élément ne correspond à votre recherche.</div>');
+            page.append(cloneTemplate('search-empty-template'));
         }
     }
 
@@ -192,27 +192,26 @@ $(function initializeApp() {
 
     /** @param {Item} item Item to render. @returns {JQuery} The item card. */
     function itemCard(item) {
-        const content = item.content ? `<div class="item-content">${escapeHtml(item.content)}</div>` : '';
-        const deleteButton = item.is_owner ? '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>' : '';
-        const privateIcon = item.is_private ? '<i class="bi bi-lock-fill ms-1" title="Privé" aria-label="Privé"></i>' : '';
-        const card = $(
-            `<div class="card item-card item-openable" data-item-id="${item.id}" data-item-type="${item.type_code}" data-item-status="${item.status_code}" role="group" aria-label="Ouvrir l’élément : ${escapeHtml(item.title)}" tabindex="0">
-                <div class="card-body"><div class="d-flex justify-content-between">
-                    <div class="flex-grow-1"><span class="type-badge ${typeClass[item.type_code]}">${item.type_code}</span>
-                    <div class="item-title mt-2">${escapeHtml(item.title)}${privateIcon}</div>${content}</div>
-                    <div class="edit-actions"><button class="btn btn-sm btn-light edit-item" title="Modifier"><i class="bi bi-pencil"></i></button>${deleteButton}</div>
-                </div></div>
-            </div>`
-        );
+        const card = cloneTemplate('item-card-template');
+        card.attr({
+            'data-item-id': item.id,
+            'data-item-type': item.type_code,
+            'data-item-status': item.status_code || '',
+            'aria-label': `Ouvrir l’élément : ${item.title}`,
+        });
+        card.find('[data-slot="type"]').text(item.type_code).addClass(typeClass[item.type_code]);
+        card.find('[data-slot="title"]').text(item.title);
+        if (item.content) card.find('[data-slot="content"]').text(item.content);
+        else card.find('[data-slot="content"]').remove();
+        if (!item.is_private) card.find('[data-slot="private-icon"]').remove();
+        if (!item.is_owner) card.find('[data-slot="delete-button"]').remove();
         return card.data('item', item);
     }
 
     /** @param {Item} item Task to render. @returns {JQuery} The task card. */
     function renderTask(item) {
         const card = itemCard(item);
-        const select = $(`<select class="form-select form-select-sm task-status-select" style="width:120px;height:32px;">
-            <option value="TODO">À faire</option><option value="IN_PROGRESS">En cours</option>
-            <option value="DONE">Terminée</option><option value="CANCELLED">Annulée</option></select>`);
+        const select = cloneTemplate('task-status-template');
         select.val(item.status_code);
         card.find('.edit-actions').before(select);
         return card;
@@ -238,14 +237,14 @@ $(function initializeApp() {
             });
             column.find('.kanban-card').remove();
             column.find('.kanban-column-count').text(columnTasks.length);
-            /** Build the HTML card for one Kanban task. */
             column.append(columnTasks.map(function renderKanbanTask(task) {
-                return `
-                <div class="kanban-card item-openable" draggable="true" data-item-id="${task.id}" data-item-type="TASK" data-item-status="${task.status_code}" role="link" tabindex="0">
-                    <div class="fw-semibold small">${escapeHtml(task.title)}</div>
-                    ${task.content ? `<small>${escapeHtml(task.content)}</small>` : ''}
-                </div>`;
-            }).join(''));
+                const card = cloneTemplate('kanban-card-template');
+                card.attr({ 'data-item-id': task.id, 'data-item-status': task.status_code });
+                card.find('[data-slot="title"]').text(task.title);
+                if (task.content) card.find('[data-slot="content"]').text(task.content);
+                else card.find('[data-slot="content"]').remove();
+                return card;
+            }));
         });
     }
 
@@ -297,18 +296,25 @@ $(function initializeApp() {
         $('#calendarPeriodLabel').text(label.charAt(0).toUpperCase() + label.slice(1));
     }
 
-    /** @param {Date} day Day to render. @param {object[]} occurrences Occurrences for the visible range. @param {boolean} muted Whether the day belongs to another month. @returns {string} Day HTML. */
+    /** @param {Date} day Day to render. @param {object[]} occurrences Occurrences for the visible range. @param {boolean} muted Whether the day belongs to another month. @returns {JQuery} Rendered calendar day. */
     function renderCalendarDay(day, occurrences, muted) {
         const dayValue = calendarDateValue(day);
         const events = occurrences.filter(occurrence => occurrence.starts_at.startsWith(dayValue));
         const today = dayValue === calendarDateValue(new Date());
-        const eventHtml = events.map(occurrence => `
-            <div class="calendar-event ${calendarTypeClass[occurrence.type_code] || ''} item-openable" title="${escapeHtml(occurrence.item_title)}" data-occurrence-id="${occurrence.id}" data-item-id="${occurrence.item_id}" role="link" tabindex="0">
-                ${escapeHtml(occurrence.item_title)}
-            </div>`).join('');
-        return `<div class="calendar-day${muted ? ' muted' : ''}${today ? ' today' : ''}" data-calendar-date="${dayValue}">
-            <div class="day-number">${day.getDate()}</div>${eventHtml}
-        </div>`;
+        const dayElement = cloneTemplate('calendar-day-template');
+        dayElement.attr('data-calendar-date', dayValue).toggleClass('muted', muted).toggleClass('today', today);
+        dayElement.find('[data-slot="day-number"]').text(day.getDate());
+        events.forEach(function appendCalendarEvent(occurrence) {
+            const event = cloneTemplate('calendar-event-template');
+            event.attr({
+                title: occurrence.item_title,
+                'data-occurrence-id': occurrence.id,
+                'data-item-id': occurrence.item_id,
+            });
+            event.addClass(calendarTypeClass[occurrence.type_code] || '').text(occurrence.item_title);
+            dayElement.append(event);
+        });
+        return dayElement;
     }
 
     /** Load real occurrences and render the selected calendar view. */
@@ -317,40 +323,49 @@ $(function initializeApp() {
         const endExclusive = shiftCalendarDate(range.end, 1);
         $('#page-calendar').attr('data-calendar-view', calendarView);
         renderCalendarLabel(range);
-        const weekdays = calendarView === 'day' ? '' : ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-            .map(day => `<div class="calendar-weekday">${day}</div>`).join('');
-        $('#calendarGrid').html(`${weekdays}<div class="calendar-loading">Chargement...</div>`);
+        const grid = $('#calendarGrid').empty();
+        if (calendarView !== 'day') {
+            ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].forEach(day => {
+                const weekday = cloneTemplate('calendar-weekday-template').text(day);
+                grid.append(weekday);
+            });
+        }
+        const state = cloneTemplate('state-message-template').addClass('calendar-loading').text('Chargement...');
+        grid.append(state);
         try {
             const occurrences = await api(`/api/occurrences?start_at=${calendarDateValue(range.start)}T00:00:00&end_at=${calendarDateValue(endExclusive)}T00:00:00`);
             const cells = range.days.map(day => renderCalendarDay(
                 day,
                 occurrences,
                 calendarView === 'month' && day.getMonth() !== calendarDate.getMonth(),
-            )).join('');
-            $('#calendarGrid').html(`${weekdays}${cells}`);
+            ));
+            grid.find('.calendar-loading').remove();
+            grid.append(cells);
         } catch (error) {
-            $('#calendarGrid').html(`${weekdays}<div class="calendar-loading">Impossible de charger les occurrences.</div>`);
+            grid.find('.calendar-loading').text('Impossible de charger les occurrences.');
             console.error('Chargement du calendrier impossible.', error);
         }
     }
 
     /** @param {Item} item Checklist to render. @returns {JQuery} The checklist card. */
     function renderChecklist(item) {
-        /** Build the HTML row for one checklist item. */
+        const card = cloneTemplate('checklist-card-template');
+        card.attr({
+            'data-item-id': item.id,
+            'data-item-status': item.status_code || '',
+            'aria-label': `Ouvrir l’élément : ${item.title}`,
+        });
+        card.find('[data-slot="title"]').text(item.title);
+        if (!item.is_private) card.find('[data-slot="private-icon"]').remove();
+        if (!item.is_owner) card.find('[data-slot="delete-button"]').remove();
         const rows = item.checklist_items.map(function renderChecklistItem(check) {
-            return `
-            <div class="check-row ${check.is_checked ? 'checked' : ''}" data-checklist-item-id="${check.id}">
-                <input type="checkbox" class="form-check-input check-box" ${check.is_checked ? 'checked' : ''}>
-                <span class="check-label">${escapeHtml(check.label)}</span>
-                <div class="check-edit gap-1"><button class="btn btn-sm btn-light edit-check"><i class="bi bi-pencil"></i></button>
-                <button class="btn btn-sm btn-light delete-check"><i class="bi bi-trash"></i></button></div>
-            </div>`;
-        }).join('');
-        const card = $(`<div class="card item-card checklist-card item-openable" data-item-id="${item.id}" data-item-type="CHECKLIST" data-item-status="${item.status_code || ''}" role="group" aria-label="Ouvrir l’élément : ${escapeHtml(item.title)}" tabindex="0"><div class="card-body">
-            <div class="d-flex justify-content-between align-items-start"><div><span class="type-badge badge-checklist">CHECKLIST</span>
-            <div class="item-title mt-2">${escapeHtml(item.title)}${item.is_private ? '<i class="bi bi-lock-fill ms-1" title="Privé" aria-label="Privé"></i>' : ''}</div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button>${item.is_owner ? '<button class="btn btn-sm btn-light delete-item" title="Supprimer"><i class="bi bi-trash"></i></button>' : ''}</div></div>
-            <div class="check-items mt-3">${rows}</div><div class="check-edit mt-3 gap-2"><button class="btn btn-sm btn-outline-secondary add-check"><i class="bi bi-plus"></i> Ajouter une case</button><button class="btn btn-sm btn-outline-secondary reset-checklist"><i class="bi bi-arrow-counterclockwise"></i> Réinitialiser</button></div>
-            <div class="progress mt-3" style="height:5px;"><div class="progress-bar"></div></div></div></div>`);
+            const row = cloneTemplate('checklist-row-template');
+            row.attr('data-checklist-item-id', check.id).toggleClass('checked', check.is_checked);
+            row.find('.check-box').prop('checked', check.is_checked);
+            row.find('.check-label').text(check.label);
+            return row;
+        });
+        card.find('.check-items').append(rows);
         card.data('item', item);
         updateChecklistProgress(card);
         return card;
@@ -359,7 +374,7 @@ $(function initializeApp() {
     /** Render the permanent full-screen item route without changing history. */
     async function renderItemDetail(itemId) {
         $('#itemDetailScreen').attr('aria-busy', 'true');
-        $('#itemDetailContent').html('<div class="text-muted">Chargement de l’élément...</div>');
+        $('#itemDetailContent').empty().append(cloneTemplate('state-message-template').addClass('text-muted').text('Chargement de l’élément...'));
         try {
             const item = await api(`/api/items/${itemId}/detail`);
             if (currentItemId !== itemId) return;
@@ -371,32 +386,35 @@ $(function initializeApp() {
                 const date = new Date(value.replace(' ', 'T'));
                 return Number.isNaN(date.getTime()) ? value : date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
             };
-            const schedules = item.schedules?.length
-                ? item.schedules.map(schedule => `<div>${escapeHtml(formatDateTime(schedule.start_at))}${schedule.end_at ? ` – ${escapeHtml(formatDateTime(schedule.end_at))}` : ''}</div>`).join('')
-                : '<div class="text-muted">Aucune échéance planifiée</div>';
-            const notifications = item.notification_configs?.length
-                ? item.notification_configs.map(config => `<div>${config.label ? `${escapeHtml(config.label)} — ` : ''}Rappel ${config.offset_minutes} min avant${config.is_enabled ? '' : ' (désactivé)'}</div>`).join('')
-                : '<div class="text-muted">Aucun rappel configuré</div>';
+            const detailInfo = cloneTemplate('item-detail-info-template');
+            const schedules = item.schedules || [];
+            const notifications = item.notification_configs || [];
+            if (schedules.length) {
+                schedules.forEach(schedule => detailInfo.find('[data-slot="schedules"]').append(
+                    cloneTemplate('detail-line-template').text(`${formatDateTime(schedule.start_at)}${schedule.end_at ? ` – ${formatDateTime(schedule.end_at)}` : ''}`),
+                ));
+            } else {
+                detailInfo.find('[data-slot="schedules"]').append(cloneTemplate('empty-state-template').text('Aucune échéance planifiée'));
+            }
+            if (notifications.length) {
+                notifications.forEach(config => detailInfo.find('[data-slot="notifications"]').append(
+                    cloneTemplate('detail-line-template').text(`${config.label ? `${config.label} — ` : ''}Rappel ${config.offset_minutes} min avant${config.is_enabled ? '' : ' (désactivé)'}`),
+                ));
+            } else {
+                detailInfo.find('[data-slot="notifications"]').append(cloneTemplate('empty-state-template').text('Aucun rappel configuré'));
+            }
             const createdAt = item.created_at ? formatAuditDate(item.created_at) : '—';
             const updatedAt = item.updated_at ? formatAuditDate(item.updated_at) : '—';
+            detailInfo.find('[data-slot="created"]').text(`Créé le ${createdAt}`);
+            detailInfo.find('[data-slot="updated"]').text(`Modifié le ${updatedAt}`);
             $('#itemDetailType').text(item.type_label || item.type_code);
             $('#itemDetailStatus').text(item.status_label || statusLabel[item.status_code] || '');
             document.title = `ZenHome — ${item.title}`;
-            $('#itemDetailContent').empty().append(card).append(`
-                <section class="item-detail-info" aria-label="Informations complémentaires">
-                    <div><h2>Planification</h2>${schedules}</div>
-                    <div><h2>Rappels</h2>${notifications}</div>
-                    <div><h2>Historique</h2><div>Créé le ${escapeHtml(createdAt)}</div><div>Modifié le ${escapeHtml(updatedAt)}</div></div>
-                </section>
-                <div class="item-detail-actions">
-                    <button class="btn btn-light" id="itemDetailBackBottom" type="button">
-                        <i class="bi bi-arrow-left" aria-hidden="true"></i> Retour
-                    </button>
-                </div>`);
+            $('#itemDetailContent').empty().append(card).append(detailInfo).append(cloneTemplate('item-detail-actions-template'));
             $('#itemDetailScreen').attr('aria-busy', 'false');
         } catch (error) {
             if (currentItemId !== itemId) return;
-            $('#itemDetailContent').html('<div class="alert alert-warning">Cet élément est introuvable ou ne peut pas être chargé.</div>');
+            $('#itemDetailContent').empty().append(cloneTemplate('state-message-template').addClass('alert alert-warning').text('Cet élément est introuvable ou ne peut pas être chargé.'));
             $('#itemDetailScreen').attr('aria-busy', 'false');
         }
     }
@@ -447,10 +465,11 @@ $(function initializeApp() {
     async function loadRecurrenceRules() {
         try {
             recurrenceRules = await api('/api/recurrence-rules');
-            $('#newRecurrence').empty().append('<option value="">Aucune</option>');
+            $('#newRecurrence').empty().append(cloneTemplate('recurrence-option-template'));
             /** Add one recurrence rule to the selector. */
             recurrenceRules.forEach(function renderRecurrenceRule(rule) {
-                $('#newRecurrence').append($('<option>', { value: rule.id, text: rule.label }));
+                const option = cloneTemplate('recurrence-option-template').val(rule.id).text(rule.label);
+                $('#newRecurrence').append(option);
             });
         } catch (error) {
             console.error('Chargement des récurrences impossible.', error);
@@ -532,18 +551,20 @@ $(function initializeApp() {
             const date = new Date(occurrence.starts_at.replace(' ', 'T'));
             const dateLabel = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
             const timeLabel = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-            return `<div class="card p-3 mb-2 dashboard-occurrence item-openable" data-item-id="${occurrence.item_id}" role="link" tabindex="0">
-                <div class="d-flex justify-content-between gap-2">
-                    <span class="type-badge ${typeClass[occurrence.type_code]}">${typeLabels[occurrence.type_code] || occurrence.type_code}</span>
-                    <span class="small text-muted">${dateLabel} · ${timeLabel}</span>
-                </div>
-                <div class="fw-semibold mt-2">${escapeHtml(occurrence.title)}</div>
-            </div>`;
+            const element = cloneTemplate('dashboard-occurrence-template').attr('data-item-id', occurrence.item_id);
+            element.find('[data-slot="type"]').addClass(typeClass[occurrence.type_code]).text(typeLabels[occurrence.type_code] || occurrence.type_code);
+            element.find('[data-slot="date"]').text(`${dateLabel} · ${timeLabel}`);
+            element.find('[data-slot="title"]').text(occurrence.title);
+            return element;
         };
         const todayOccurrences = occurrences.filter(occurrence => occurrence.starts_at.startsWith(today));
-        $('#dashboardTodayList').html(todayOccurrences.length ? todayOccurrences.map(renderOccurrence).join('') : '<div class="text-muted">Aucun élément prévu aujourd’hui.</div>');
+        $('#dashboardTodayList').empty().append(todayOccurrences.length
+            ? todayOccurrences.map(renderOccurrence)
+            : cloneTemplate('empty-state-template').text('Aucun élément prévu aujourd’hui.'));
         const upcomingOccurrences = occurrences.filter(occurrence => !occurrence.starts_at.startsWith(today));
-        $('#dashboardUpcomingList').html(upcomingOccurrences.length ? upcomingOccurrences.slice(0, 5).map(renderOccurrence).join('') : '<div class="text-muted">Aucun élément à venir.</div>');
+        $('#dashboardUpcomingList').empty().append(upcomingOccurrences.length
+            ? upcomingOccurrences.slice(0, 5).map(renderOccurrence)
+            : cloneTemplate('empty-state-template').text('Aucun élément à venir.'));
         applySearch();
     }
 
@@ -720,16 +741,7 @@ $(function initializeApp() {
 
     /** Add an empty checklist row to the item creation form. */
     function appendNewChecklistItem() {
-        $('#newChecklistItems').append(`
-            <div class="checklist-create-row input-group mb-2">
-                <span class="input-group-text">
-                    <input class="form-check-input new-check-checked" type="checkbox" aria-label="Case cochée">
-                </span>
-                <input class="form-control new-check-label" maxlength="250" placeholder="Ex. Acheter du lait">
-                <button type="button" class="btn btn-light remove-new-check" title="Supprimer la case">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>`);
+        $('#newChecklistItems').append(cloneTemplate('checklist-create-row-template'));
     }
 
     /** Read non-empty checklist rows from the item creation form. */
@@ -743,29 +755,7 @@ $(function initializeApp() {
 
     /** Add a notification configuration row to the item form. */
     function appendNewNotificationConfig(config = {}) {
-        const row = $(`
-            <div class="notification-create-row row g-2 align-items-center mb-2">
-                <div class="col-12 col-md-4">
-                    <input class="form-control new-notification-label" maxlength="100" placeholder="Libellé (facultatif)" aria-label="Libellé du rappel">
-                </div>
-                <div class="col-8 col-md-4">
-                    <div class="input-group">
-                        <input class="form-control new-notification-offset" type="number" min="0" step="1" required aria-label="Délai du rappel en minutes">
-                        <span class="input-group-text">min avant</span>
-                    </div>
-                </div>
-                <div class="col-3 col-md-3">
-                    <div class="form-check">
-                        <input class="form-check-input new-notification-enabled" type="checkbox">
-                        <label class="form-check-label">Activé</label>
-                    </div>
-                </div>
-                <div class="col-1 col-md-1 text-end">
-                    <button type="button" class="btn btn-light remove-new-notification" title="Supprimer le rappel" aria-label="Supprimer le rappel">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </div>`);
+        const row = cloneTemplate('notification-create-row-template');
         row.find('.new-notification-label').val(config.label || '');
         row.find('.new-notification-offset').val(config.offset_minutes ?? 15);
         row.find('.new-notification-enabled').prop('checked', config.is_enabled ?? true);

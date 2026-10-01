@@ -1026,6 +1026,172 @@
     </div>
 </div>
 
+<template id="search-empty-template">
+    <div class="search-empty">Aucun élément ne correspond à votre recherche.</div>
+</template>
+
+<template id="item-card-template">
+    <div class="card item-card item-openable" role="group" tabindex="0">
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <div class="flex-grow-1">
+                    <span class="type-badge" data-slot="type"></span>
+                    <div class="item-title mt-2"><span data-slot="title"></span><i class="bi bi-lock-fill ms-1" title="Privé" aria-label="Privé" data-slot="private-icon"></i></div>
+                    <div class="item-content" data-slot="content"></div>
+                </div>
+                <div class="edit-actions">
+                    <button class="btn btn-sm btn-light edit-item" title="Modifier"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-light delete-item" title="Supprimer" data-slot="delete-button"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="task-status-template">
+    <select class="form-select form-select-sm task-status-select" style="width:120px;height:32px;">
+        <option value="TODO">À faire</option>
+        <option value="IN_PROGRESS">En cours</option>
+        <option value="DONE">Terminée</option>
+        <option value="CANCELLED">Annulée</option>
+    </select>
+</template>
+
+<template id="kanban-card-template">
+    <div class="kanban-card item-openable" draggable="true" data-item-type="TASK" role="link" tabindex="0">
+        <div class="fw-semibold small" data-slot="title"></div>
+        <small data-slot="content"></small>
+    </div>
+</template>
+
+<template id="calendar-weekday-template">
+    <div class="calendar-weekday"></div>
+</template>
+
+<template id="calendar-event-template">
+    <div class="calendar-event item-openable" role="link" tabindex="0"></div>
+</template>
+
+<template id="calendar-day-template">
+    <div class="calendar-day">
+        <div class="day-number" data-slot="day-number"></div>
+    </div>
+</template>
+
+<template id="state-message-template">
+    <div></div>
+</template>
+
+<template id="checklist-row-template">
+    <div class="check-row">
+        <input type="checkbox" class="form-check-input check-box">
+        <span class="check-label"></span>
+        <div class="check-edit gap-1">
+            <button class="btn btn-sm btn-light edit-check"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-light delete-check"><i class="bi bi-trash"></i></button>
+        </div>
+    </div>
+</template>
+
+<template id="checklist-card-template">
+    <div class="card item-card checklist-card item-openable" data-item-type="CHECKLIST" role="group" tabindex="0">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="type-badge badge-checklist">CHECKLIST</span>
+                    <div class="item-title mt-2"><span data-slot="title"></span><i class="bi bi-lock-fill ms-1" title="Privé" aria-label="Privé" data-slot="private-icon"></i></div>
+                </div>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-light edit-item" title="Modifier l’élément"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-light edit-checklist" title="Modifier les cases"><i class="bi bi-list-check"></i></button>
+                    <button class="btn btn-sm btn-light delete-item" title="Supprimer" data-slot="delete-button"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+            <div class="check-items mt-3"></div>
+            <div class="check-edit mt-3 gap-2">
+                <button class="btn btn-sm btn-outline-secondary add-check"><i class="bi bi-plus"></i> Ajouter une case</button>
+                <button class="btn btn-sm btn-outline-secondary reset-checklist"><i class="bi bi-arrow-counterclockwise"></i> Réinitialiser</button>
+            </div>
+            <div class="progress mt-3" style="height:5px;"><div class="progress-bar"></div></div>
+        </div>
+    </div>
+</template>
+
+<template id="item-detail-info-template">
+    <section class="item-detail-info" aria-label="Informations complémentaires">
+        <div><h2>Planification</h2><div data-slot="schedules"></div></div>
+        <div><h2>Rappels</h2><div data-slot="notifications"></div></div>
+        <div><h2>Historique</h2><div data-slot="created"></div><div data-slot="updated"></div></div>
+    </section>
+</template>
+
+<template id="item-detail-actions-template">
+    <div class="item-detail-actions">
+        <button class="btn btn-light" id="itemDetailBackBottom" type="button">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i> Retour
+        </button>
+    </div>
+</template>
+
+<template id="detail-line-template">
+    <div></div>
+</template>
+
+<template id="empty-state-template">
+    <div class="text-muted"></div>
+</template>
+
+<template id="dashboard-occurrence-template">
+    <div class="card p-3 mb-2 dashboard-occurrence item-openable" role="link" tabindex="0">
+        <div class="d-flex justify-content-between gap-2">
+            <span class="type-badge" data-slot="type"></span>
+            <span class="small text-muted" data-slot="date"></span>
+        </div>
+        <div class="fw-semibold mt-2" data-slot="title"></div>
+    </div>
+</template>
+
+<template id="recurrence-option-template">
+    <option value=""></option>
+</template>
+
+<template id="checklist-create-row-template">
+    <div class="checklist-create-row input-group mb-2">
+        <span class="input-group-text">
+            <input class="form-check-input new-check-checked" type="checkbox" aria-label="Case cochée">
+        </span>
+        <input class="form-control new-check-label" maxlength="250" placeholder="Ex. Acheter du lait">
+        <button type="button" class="btn btn-light remove-new-check" title="Supprimer la case">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+</template>
+
+<template id="notification-create-row-template">
+    <div class="notification-create-row row g-2 align-items-center mb-2">
+        <div class="col-12 col-md-4">
+            <input class="form-control new-notification-label" maxlength="100" placeholder="Libellé (facultatif)" aria-label="Libellé du rappel">
+        </div>
+        <div class="col-8 col-md-4">
+            <div class="input-group">
+                <input class="form-control new-notification-offset" type="number" min="0" step="1" required aria-label="Délai du rappel en minutes">
+                <span class="input-group-text">min avant</span>
+            </div>
+        </div>
+        <div class="col-3 col-md-3">
+            <div class="form-check">
+                <input class="form-check-input new-notification-enabled" type="checkbox">
+                <label class="form-check-label">Activé</label>
+            </div>
+        </div>
+        <div class="col-1 col-md-1 text-end">
+            <button type="button" class="btn btn-light remove-new-notification" title="Supprimer le rappel" aria-label="Supprimer le rappel">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+</template>
+
 
 <!-- ================= JS ================= -->
 
