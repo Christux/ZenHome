@@ -43,6 +43,7 @@
 $(function initializeApp() {
     const itemUpdateChannel = 'BroadcastChannel' in window ? new BroadcastChannel('zenhome-item-updates') : null;
     let sharedRefreshTimer = null;
+    let periodicRefreshTimer = null;
     const authTokenKey = 'zenhome-auth-token';
     let authToken = null;
     try { authToken = localStorage.getItem(authTokenKey); } catch (error) { /* stockage indisponible */ }
@@ -479,6 +480,11 @@ $(function initializeApp() {
     /** Load the application data once a token has been accepted. */
     function startAuthenticatedWorkspace(user) {
         displayAuthenticatedUser(user);
+        if (periodicRefreshTimer === null) {
+            periodicRefreshTimer = setInterval(function refreshVisibleWorkspace() {
+                if (authToken && !document.hidden) scheduleSharedRefresh();
+            }, 30000);
+        }
         const initialItemMatch = location.pathname.match(/^\/item\/(\d+)$/);
         const initialPage = ({ '/notes': 'notes', '/checklists': 'checklist', '/tasks': 'tasks', '/kanban': 'kanban', '/calendar': 'calendar' })[location.pathname] || 'dashboard';
         showPage(initialPage);
