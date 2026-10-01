@@ -45,10 +45,15 @@ def test_occurrence_and_notification_generation_is_idempotent(test_context, monk
         assert notification.notify_at == "2030-05-01T09:30:00"
 
         sent = []
-        monkeypatch.setattr(daemon, "send_notification", sent.append)
+
+        def capture_delivery(delivery):
+            assert not session.in_transaction()
+            sent.append(delivery)
+
+        monkeypatch.setattr(daemon, "send_notification", capture_delivery)
         assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 29)) == 0
         assert daemon.send_due_notifications(session, datetime(2030, 5, 1, 9, 30)) == 1
-        assert sent == [notification]
+        assert [delivery.notification_id for delivery in sent] == [notification.id]
         assert notification.status.code == "SENT"
         assert notification.sent_at is not None
         session.commit()

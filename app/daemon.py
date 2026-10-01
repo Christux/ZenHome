@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import calendar
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 import logging
 import re
@@ -12,7 +13,7 @@ import unicodedata
 
 from python_ntfy import MessageSendError, NtfyClient, ViewAction
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from .database import SessionLocal
 from .globals import (
@@ -27,6 +28,7 @@ from .globals import (
     OCCURRENCES_HORIZON_DAYS,
 )
 from .models import (
+    Items,
     NotificationConfigs,
     NotificationStatuses,
     Notifications,
@@ -39,11 +41,41 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
-def send_notification(notification: Notifications) -> None:
+@dataclass(frozen=True)
+class NotificationDelivery:
+    notification_id: int
+    item_id: int
+    item_title: str
+    item_content: str | None
+    item_is_private: bool
+    user_id: int
+    user_display_name: str
+    notification_label: str | None
+    starts_at: str
+
+
+def _notification_delivery(notification: Notifications) -> NotificationDelivery:
+    occurrence = notification.schedule_occurrence
+    item = occurrence.schedule.item
+    return NotificationDelivery(
+        notification_id=notification.id,
+        item_id=item.id,
+        item_title=item.title,
+        item_content=item.content,
+        item_is_private=item.is_private,
+        user_id=item.user_id,
+        user_display_name=item.user.display_name,
+        notification_label=notification.notification_config.label,
+        starts_at=occurrence.starts_at,
+    )
+
+
+def send_notification(notification: Notifications | NotificationDelivery) -> None:
     """Sends a notification to the item's public or private ntfy topic."""
-    item = notification.schedule_occurrence.schedule.item
-    if item.is_private:
-        channel = _topic_component(item.user.display_name) or f"user-{item.user_id}"
+    if isinstance(notification, Notifications):
+        notification = _notification_delivery(notification)
+    if notification.item_is_private:
+        channel = _topic_component(notification.user_display_name) or f"user-{notification.user_id}"
     else:
         channel = "general"
     topic_prefix = _topic_component(NTFY_TOPIC_PREFIX) or "zenhome"
@@ -58,14 +90,14 @@ def send_notification(notification: Notifications) -> None:
     else:
         auth = None
     client = NtfyClient(topic=topic, server=NTFY_SERVER, auth=auth)
-    starts_at = _parse_datetime(notification.schedule_occurrence.starts_at)
+    starts_at = _parse_datetime(notification.starts_at)
     message = f"Prévu le {starts_at.strftime('%d/%m/%Y à %H:%M')}"
-    if item.content:
-        message = f"{item.content}\n\n{message}"
+    if notification.item_content:
+        message = f"{notification.item_content}\n\n{message}"
     client.send(
         message=message,
-        title=notification.notification_config.label or item.title,
-        actions=[ViewAction(label="Voir l'item", url=f"{HOME_URL.rstrip('/')}/item/{item.id}")],
+        title=notification.notification_label or notification.item_title,
+        actions=[ViewAction(label="Voir l'item", url=f"{HOME_URL.rstrip('/')}/item/{notification.item_id}")],
     )
 
 
@@ -251,26 +283,43 @@ def send_due_notifications(session: Session, now: datetime | None = None) -> int
     if pending_status_id is None or statuses.get("SENT") is None or statuses.get("FAILED") is None:
         logger.warning("Notification statuses PENDING, SENT, or FAILED are missing")
         return 0
-    due = session.scalars(select(Notifications).where(
+    due = session.scalars(select(Notifications).options(
+        joinedload(Notifications.notification_config),
+        joinedload(Notifications.schedule_occurrence)
+        .joinedload(ScheduleOccurrences.schedule)
+        .joinedload(Schedules.item)
+        .joinedload(Items.user),
+    ).where(
         Notifications.status_id == pending_status_id,
         Notifications.notify_at <= now.isoformat(),
     )).all()
-    for notification in due:
+    deliveries = [(notification.id, _notification_delivery(notification)) for notification in due]
+
+    # End the read transaction before any external network call.
+    session.commit()
+
+    outcomes: list[tuple[int, int, str | None, str | None]] = []
+    for notification_id, delivery in deliveries:
         try:
-            send_notification(notification)
+            send_notification(delivery)
         except MessageSendError as exc:
-            notification.status_id = statuses["FAILED"]
-            notification.error_message = str(exc)
-            logger.exception("ntfy failed to send notification %s", notification.id)
+            outcomes.append((notification_id, statuses["FAILED"], None, str(exc)))
+            logger.exception("ntfy failed to send notification %s", notification_id)
         except Exception as exc:
-            notification.status_id = statuses["FAILED"]
-            notification.error_message = str(exc)
-            logger.exception("Failed to send notification %s", notification.id)
+            outcomes.append((notification_id, statuses["FAILED"], None, str(exc)))
+            logger.exception("Failed to send notification %s", notification_id)
         else:
-            notification.status_id = statuses["SENT"]
-            notification.sent_at = datetime.now().isoformat()
-            notification.error_message = None
-    return len(due)
+            outcomes.append((notification_id, statuses["SENT"], datetime.now().isoformat(), None))
+
+    for notification_id, status_id, sent_at, error_message in outcomes:
+        notification = session.get(Notifications, notification_id)
+        if notification is None or notification.status_id != pending_status_id:
+            continue
+        notification.status_id = status_id
+        notification.sent_at = sent_at
+        notification.error_message = error_message
+    session.commit()
+    return len(deliveries)
 
 
 def run_occurrences_once() -> None:
@@ -293,8 +342,8 @@ def run_notifications_once() -> None:
     session = SessionLocal()
     try:
         notifications = create_notifications(session)
-        due = send_due_notifications(session)
         session.commit()
+        due = send_due_notifications(session)
         if notifications or due:
             logger.info("Daemon: %s notifications created, %s pending delivery", notifications, due)
     except Exception:
