@@ -16,7 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .database import initialize_database
+from .database import engine, initialize_database
 from .daemon import daemon_loop
 from .globals import PROJECT_DIR
 from .logging_config import configure_logging
@@ -41,9 +41,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        logger.info("Shutdown requested; stopping daemon")
         stop_event.set()
-        await daemon_task
-        logger.info("Stopping ZenHome")
+        try:
+            daemon_result = await asyncio.gather(daemon_task, return_exceptions=True)
+            if isinstance(daemon_result[0], Exception):
+                logger.error("Daemon stopped with an error", exc_info=daemon_result[0])
+        finally:
+            engine.dispose()
+            logger.info("ZenHome stopped; database connections disposed")
 
 
 logger = logging.getLogger(__name__)

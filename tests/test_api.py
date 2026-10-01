@@ -1,5 +1,7 @@
+import asyncio
 from datetime import datetime, timedelta
 
+import app.main as app_main
 from sqlalchemy import select
 
 from app.models import Items
@@ -7,6 +9,26 @@ from app.models import Items
 
 def auth(token: str = "alice-test-token") -> dict[str, str]:
     return {"X-Auth-Token": token}
+
+
+def test_lifespan_disposes_database_when_daemon_fails(monkeypatch) -> None:
+    async def failing_daemon(stop_event: asyncio.Event) -> None:
+        await stop_event.wait()
+        raise RuntimeError("daemon failure")
+
+    monkeypatch.setattr(app_main, "configure_logging", lambda: None)
+    monkeypatch.setattr(app_main, "initialize_database", lambda: None)
+    monkeypatch.setattr(app_main, "daemon_loop", failing_daemon)
+    disposed = []
+    monkeypatch.setattr(app_main.engine, "dispose", lambda: disposed.append(True))
+
+    async def run_lifespan() -> None:
+        async with app_main.lifespan(app_main.app):
+            pass
+
+    asyncio.run(run_lifespan())
+
+    assert disposed == [True]
 
 
 def test_health_and_authentication(client) -> None:
