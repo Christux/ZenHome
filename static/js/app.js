@@ -125,6 +125,12 @@ $(function initializeApp() {
     let checklistItemOwnerId = null;
     let confirmationResolve = null;
     let currentItemId = null;
+    let renderedNotesSignature = null;
+    let renderedTasksSignature = null;
+    let renderedChecklistsSignature = null;
+    let renderedDashboardSignature = null;
+    let renderedCalendarSignature = null;
+    let renderedItemDetailSignature = null;
     let createItemType = 'NOTE';
     const pageItemType = { notes: 'NOTE', checklist: 'CHECKLIST', tasks: 'TASK', kanban: 'TASK' };
     const itemTypeLabel = { NOTE: 'note', CHECKLIST: 'checklist', TASK: 'tâche' };
@@ -323,26 +329,35 @@ $(function initializeApp() {
         const endExclusive = shiftCalendarDate(range.end, 1);
         $('#page-calendar').attr('data-calendar-view', calendarView);
         renderCalendarLabel(range);
-        const grid = $('#calendarGrid').empty();
-        if (calendarView !== 'day') {
-            ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].forEach(day => {
-                const weekday = cloneTemplate('calendar-weekday-template').text(day);
-                grid.append(weekday);
-            });
+        const grid = $('#calendarGrid');
+        if (renderedCalendarSignature === null && !grid.children().length) {
+            grid.append(cloneTemplate('state-message-template').addClass('calendar-loading').text('Chargement...'));
         }
-        const state = cloneTemplate('state-message-template').addClass('calendar-loading').text('Chargement...');
-        grid.append(state);
         try {
             const occurrences = await api(`/api/occurrences?start_at=${calendarDateValue(range.start)}T00:00:00&end_at=${calendarDateValue(endExclusive)}T00:00:00`);
+            const signature = JSON.stringify({
+                calendarView,
+                start: calendarDateValue(range.start),
+                end: calendarDateValue(range.end),
+                today: calendarDateValue(new Date()),
+                occurrences,
+            });
+            if (signature === renderedCalendarSignature) return;
             const cells = range.days.map(day => renderCalendarDay(
                 day,
                 occurrences,
                 calendarView === 'month' && day.getMonth() !== calendarDate.getMonth(),
             ));
-            grid.find('.calendar-loading').remove();
+            grid.empty();
+            if (calendarView !== 'day') {
+                ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].forEach(day => {
+                    grid.append(cloneTemplate('calendar-weekday-template').text(day));
+                });
+            }
             grid.append(cells);
+            renderedCalendarSignature = signature;
         } catch (error) {
-            grid.find('.calendar-loading').text('Impossible de charger les occurrences.');
+            if (renderedCalendarSignature === null) grid.find('.calendar-loading').text('Impossible de charger les occurrences.');
             console.error('Chargement du calendrier impossible.', error);
         }
     }
@@ -373,11 +388,15 @@ $(function initializeApp() {
 
     /** Render the permanent full-screen item route without changing history. */
     async function renderItemDetail(itemId) {
-        $('#itemDetailScreen').attr('aria-busy', 'true');
-        $('#itemDetailContent').empty().append(cloneTemplate('state-message-template').addClass('text-muted').text('Chargement de l’élément...'));
+        if (!$('#itemDetailContent').children().length) {
+            $('#itemDetailScreen').attr('aria-busy', 'true');
+            $('#itemDetailContent').append(cloneTemplate('state-message-template').addClass('text-muted').text('Chargement de l’élément...'));
+        }
         try {
             const item = await api(`/api/items/${itemId}/detail`);
             if (currentItemId !== itemId) return;
+            const signature = JSON.stringify(item);
+            if (signature === renderedItemDetailSignature) return;
             const card = item.type_code === 'CHECKLIST' ? renderChecklist(item)
                 : item.type_code === 'TASK' ? renderTask(item)
                     : itemCard(item);
@@ -412,6 +431,7 @@ $(function initializeApp() {
             document.title = `ZenHome — ${item.title}`;
             $('#itemDetailContent').empty().append(card).append(detailInfo).append(cloneTemplate('item-detail-actions-template'));
             $('#itemDetailScreen').attr('aria-busy', 'false');
+            renderedItemDetailSignature = signature;
         } catch (error) {
             if (currentItemId !== itemId) return;
             $('#itemDetailContent').empty().append(cloneTemplate('state-message-template').addClass('alert alert-warning').text('Cet élément est introuvable ou ne peut pas être chargé.'));
@@ -423,6 +443,7 @@ $(function initializeApp() {
     function openItemView(itemId, push = false) {
         const fromPage = $('.page:not(.d-none)').attr('id')?.replace('page-', '') || 'dashboard';
         currentItemId = Number(itemId);
+        renderedItemDetailSignature = null;
         if (push) history.pushState({ itemId: currentItemId, fromPage }, '', `/item/${currentItemId}`);
         $('#itemDetailScreen').removeClass('d-none');
         renderItemDetail(currentItemId);
@@ -441,20 +462,35 @@ $(function initializeApp() {
             const [notes, tasks, checklists] = await Promise.all([
                 api('/api/items?item_type=NOTE'), api('/api/items?item_type=TASK'), api('/api/items?item_type=CHECKLIST')
             ]);
-            $('#notesCount').text(notes.length);
-            $('#tasksCount').text(tasks.length);
-            $('#checklistsCount').text(checklists.length);
-            $('#notesList').empty().append(notes.map(itemCard));
-            $('#tasksList').empty().append(tasks.map(renderTask));
-            renderKanban(tasks);
+            if ($('#notesCount').text() !== String(notes.length)) $('#notesCount').text(notes.length);
+            if ($('#tasksCount').text() !== String(tasks.length)) $('#tasksCount').text(tasks.length);
+            if ($('#checklistsCount').text() !== String(checklists.length)) $('#checklistsCount').text(checklists.length);
+            const notesSignature = JSON.stringify(notes);
+            const notesChanged = notesSignature !== renderedNotesSignature;
+            if (notesChanged) {
+                $('#notesList').empty().append(notes.map(itemCard));
+                renderedNotesSignature = notesSignature;
+            }
+            const tasksSignature = JSON.stringify(tasks);
+            const tasksChanged = tasksSignature !== renderedTasksSignature;
+            if (tasksChanged) {
+                $('#tasksList').empty().append(tasks.map(renderTask));
+                renderKanban(tasks);
+                renderedTasksSignature = tasksSignature;
+            }
             applyTaskFilter();
-            $('#page-checklist > .item-card').remove();
             /** Load the detailed representation of one checklist. */
             const details = await Promise.all(checklists.map(function loadChecklistDetails(item) {
                 return api(`/api/items/${item.id}/detail`);
             }));
-            $('#checklistList').empty().append(details.map(renderChecklist));
-            applySearch();
+            const checklistsSignature = JSON.stringify(details);
+            const checklistsChanged = checklistsSignature !== renderedChecklistsSignature;
+            if (checklistsChanged) {
+                $('#page-checklist > .item-card').remove();
+                $('#checklistList').empty().append(details.map(renderChecklist));
+                renderedChecklistsSignature = checklistsSignature;
+            }
+            if (notesChanged || tasksChanged || checklistsChanged) applySearch();
             if (currentItemId !== null) await renderItemDetail(currentItemId);
         } catch (error) {
             console.error('Chargement ZenHome impossible.', error);
@@ -480,12 +516,17 @@ $(function initializeApp() {
     async function loadDashboard() {
         try {
             const data = await api('/api/dashboard');
+            const today = calendarDateValue(new Date());
+            const upcomingOccurrences = data.upcoming_occurrences || [];
+            const signature = JSON.stringify({ data, today });
+            if (signature === renderedDashboardSignature) return;
             const counts = data.counts || {};
             $('[data-dashboard-count="today"]').text(counts.today || 0);
             $('[data-dashboard-count="tasks_done"]').text(counts.tasks_done || 0);
             $('[data-dashboard-count="checklists_open"]').text(counts.checklists_open || 0);
-            $('[data-dashboard-count="upcoming"]').text(data.upcoming_occurrences.length || 0);
-            renderDashboardOccurrences(data.upcoming_occurrences || []);
+            $('[data-dashboard-count="upcoming"]').text(upcomingOccurrences.length);
+            renderDashboardOccurrences(upcomingOccurrences);
+            renderedDashboardSignature = signature;
         } catch (error) { console.error(error); }
     }
 
