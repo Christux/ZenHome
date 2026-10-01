@@ -180,6 +180,9 @@ def test_schedule_occurrence_and_notification_lifecycle(client, test_context) ->
         "label": "Rappel", "offset_minutes": 15,
     })
     assert config.status_code == 201
+    notification = client.get("/api/notifications?status_code=PENDING", headers=auth()).json()[0]
+    assert notification["item_title"] == "Rendez-vous"
+    assert notification["notify_at"] == f"{schedule_start.date().isoformat()}T19:45:00"
 
     occurrence = client.get("/api/occurrences", headers=auth()).json()[0]
     assert occurrence["item_title"] == "Rendez-vous"
@@ -189,7 +192,7 @@ def test_schedule_occurrence_and_notification_lifecycle(client, test_context) ->
 
     with test_context.session_factory() as session:
         assert create_occurrences(session, schedule_start.replace(hour=0)) == 0
-        assert create_notifications(session) == 1
+        assert create_notifications(session) == 0
         session.commit()
 
     occurrence = client.get("/api/occurrences", headers=auth()).json()[0]
@@ -198,9 +201,6 @@ def test_schedule_occurrence_and_notification_lifecycle(client, test_context) ->
     ).json()
     assert completed["completed_at"].endswith("+00:00")
 
-    notification = client.get("/api/notifications?status_code=PENDING", headers=auth()).json()[0]
-    assert notification["item_title"] == "Rendez-vous"
-    assert notification["notify_at"] == f"{schedule_start.date().isoformat()}T19:45:00"
     sent = client.patch(
         f"/api/notifications/{notification['id']}/status", headers=auth(),
         json={"code": "SENT"},

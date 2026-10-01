@@ -17,7 +17,7 @@ from .business import (
     ScheduleInput,
     StatusInput,
 )
-from .daemon import create_occurrences
+from .daemon import create_notifications, create_occurrences
 from .models import (
     ChecklistItems,
     ItemStatuses,
@@ -385,6 +385,7 @@ def add_schedule(user_id: int, item_id: int, body: ScheduleInput, session: Sessi
     session.add(row)
     session.flush()
     create_occurrences(session)
+    create_notifications(session)
     return as_dict(row)
 
 
@@ -440,6 +441,7 @@ def add_notification_config(user_id: int, item_id: int, body: NotificationConfig
     row = NotificationConfigs(item_id=item_id, label=body.label, offset_minutes=body.offset_minutes, is_enabled=body.is_enabled)
     session.add(row)
     session.flush()
+    create_notifications(session)
     return as_dict(row)
 
 
