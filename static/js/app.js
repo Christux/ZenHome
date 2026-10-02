@@ -1,4 +1,13 @@
 /**
+ * @typedef {import('jquery')} jQuery
+ * A jQuery object instance.
+ *
+ * This typedef allows you to use `@param {jQuery}` in your docs.
+ */
+
+/** @type {typeof import('bootstrap')} */
+
+/**
  * @typedef {Object} ApiOptions
  * @property {string} [method]
  * @property {Object} [data]
