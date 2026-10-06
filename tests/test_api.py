@@ -98,6 +98,24 @@ def test_shared_and_private_items_access(client) -> None:
     assert client.post(
         f"/api/items/{shared_checklist['id']}/checklist-items/reset", headers=bob_headers,
     ).json()["reset_count"] == 1
+    edited_checklist = client.patch(
+        f"/api/items/{shared_checklist['id']}", headers=bob_headers,
+        json={"title": "Checklist partagée modifiée"},
+    )
+    assert edited_checklist.status_code == 200
+    assert edited_checklist.json()["id"] == shared_checklist["id"]
+    added_check = client.post(
+        f"/api/items/{shared_checklist['id']}/checklist-items", headers=bob_headers,
+        json={"label": "Ajout de Bob"},
+    )
+    assert added_check.status_code == 201
+    assert len([
+        item for item in client.get("/api/items?item_type=CHECKLIST", headers=bob_headers).json()
+        if item["id"] == shared_checklist["id"]
+    ]) == 1
+    assert len(client.get(
+        f"/api/items/{shared_checklist['id']}/detail", headers=auth(),
+    ).json()["checklist_items"]) == 2
     assert client.get(f"/api/items/{private['id']}/detail", headers=bob_headers).status_code == 404
     assert client.patch(f"/api/items/{private['id']}", headers=bob_headers, json={
         "title": "Accès interdit",
