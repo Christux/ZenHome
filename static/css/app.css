@@ -671,6 +671,10 @@ body {
         padding: 22px 16px 90px;
     }
 
+    .page .item-card .edit-actions {
+        display: none;
+    }
+
     .topbar {
         padding: 0 16px;
     }
